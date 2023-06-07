@@ -1,2 +1,5 @@
 (library
- (name mycelium))
+ (name mycelium)
+ (inline_tests)
+ (libraries base)
+ (preprocess (pps ppx_inline_test)))

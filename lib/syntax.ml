@@ -25,6 +25,7 @@ type exp =
   | False of place
   | Lam of place * id * typ * exp
   | App of exp * exp
+  | Id of string
   | Rcd of place * (label * exp) list
   | Fld of exp * label
   (* Send as primitive? *)
