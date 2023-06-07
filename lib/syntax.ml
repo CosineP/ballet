@@ -40,7 +40,7 @@ type exp =
   | Drf of exp
   | Srf of exp * exp
   | TLam of pv * exp
-  | TApp of exp * pv
+  | TApp of exp * place
   | Fd of exp
   | Unfd of exp
 [@@deriving show]
