@@ -36,7 +36,7 @@ type exp =
   | Rcd of place * (label * exp) list
   | Fld of exp * label
   (* Send as primitive? *)
-  | Rf of place * exp (* unplaced refs make this... weird? *)
+  | Rf of place * exp
   | Drf of exp
   | Srf of exp * exp
   | TLam of pv * exp
