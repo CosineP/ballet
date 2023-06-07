@@ -1,13 +1,18 @@
 type tv = string
+[@@deriving show]
 type pv = string
+[@@deriving show]
 type id = string
+[@@deriving show]
 type label = string
+[@@deriving show]
 
 type place =
   | Server
   | Client
   | Named of string
   | Pv of string
+[@@deriving show]
 
 type base =
   | Bool
@@ -16,9 +21,11 @@ type base =
   | Mu of string * base
   | Tv of string
   | Ref of base
+[@@deriving show]
 and typ =
   | Typ of place * base
   | Forall of string * typ
+[@@deriving show]
 
 type exp =
   | True of place
@@ -36,4 +43,5 @@ type exp =
   | TApp of exp * pv
   | Fd of exp
   | Unfd of exp
+[@@deriving show]
 

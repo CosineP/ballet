@@ -5,6 +5,7 @@ pkgs.mkShell rec {
     ocamlPackages.ocaml-lsp
     ocamlPackages.base
     ocamlPackages.ppx_inline_test
+    ocamlPackages.ppx_deriving
     ocamlPackages.findlib
   ];
 }
