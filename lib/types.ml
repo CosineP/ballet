@@ -27,7 +27,7 @@ and bsubst_b base tv gnd = match base with
   | Mu _ -> raise Todo (* Can you unfold a recursive type under a different type variable? *)
   | Tv tv' when tv = tv' -> gnd
   | Tv _ -> base
-  | Ref b -> Ref (bsubst_b b tv gnd)
+  | Ref b -> Ref (bsubst_t b tv gnd)
 
 [@@@warning "-8"] (* Most closely matches paper rules *)
 let rec tp gm exp = match exp with
@@ -50,18 +50,16 @@ let rec tp gm exp = match exp with
     let Typ (_, Record fs) = tp gm e in
     List.assoc l fs
   | Rf (p, e) ->
-    let Typ (p', u) = tp gm e in
-    assert (p = p');
-    Typ (p, Ref u)
+    let t = tp gm e in
+    Typ (p, Ref t)
   | Drf e ->
-    let Typ (p, Ref u) = tp gm e in
-    Typ (p, u)
+    let Typ (_, Ref t) = tp gm e in
+    t
   | Srf (e1, e2) ->
-    let Typ (p, Ref u) = tp gm e1 in
-    let Typ (p', u') = tp gm e2 in
-    assert (p = p');
-    assert (u = u');
-    Typ (p, Ref u)
+    let Typ (p, Ref t) = tp gm e1 in
+    let t' = tp gm e2 in
+    assert (t = t');
+    Typ (p, Ref t)
   | TLam (p, e) -> Forall (p, tp gm e)
   | TApp (e, p) ->
     let Forall (pv, t) = tp gm e in
@@ -85,14 +83,13 @@ let%test "hetero app" = does_raise @@ fun () -> tp [] (App (server_lam, True Cli
 let%test "non-lam app" = does_raise @@ fun () -> tp [] (App (True Client, True Client))
 let%test "id" = tp [] (App ((Lam (Server, "x", Typ (Server, Bool), (Id "x"))), (True Server))) = Typ (Server, Bool)
 let%test "rec-fld" = tp [] (Fld (Rcd (Server, [("f", (True Server))]), "f")) = Typ (Server, Bool)
-let%test "ref" = tp [] (Rf (Server, (True Server))) = Typ (Server, Ref Bool)
-let%test "hetero ref" = does_raise @@ fun () -> tp [] (Rf (Server, (True Client)))
+let%test "ref" = tp [] (Rf (Server, (True Server))) = Typ (Server, Ref (Typ (Server, Bool)))
 let%test "set/deref" = tp [] (Drf (Srf (Rf (Client, True Client), (False Client)))) = Typ (Client, Bool)
 let%test "hetero set" = does_raise @@ fun () -> tp [] (Srf (Rf (Client, True Client), (False Server)))
 let lamalpha = Lam (Server, "x", Typ (Pv "a", Bool), Id "x")
 let id = TLam ("a", lamalpha)
 let%test "polyid" = tp [] (App (TApp (id, Server), (True Server))) = Typ (Server, Bool)
 let%test "polyfail" = does_raise @@ fun () -> tp [] (App (TApp (id, Server), (True Client)))
-let inf = Mu ("a", Ref (Tv "a"))
+let inf = Mu ("a", Ref (Typ (Client, (Tv "a"))))
 let fold_unfold_x = Fd (inf, Unfd (inf, Id "x"))
 let%test "fold-unfold" = tp [] (Lam (Server, "x", Typ (Server, inf), fold_unfold_x)) = Typ (Server, Arr (Typ (Server, inf), Typ (Server, inf)))

@@ -20,7 +20,7 @@ type base =
   | Record of (label * typ) list
   | Mu of tv * base
   | Tv of tv
-  | Ref of base
+  | Ref of typ
 [@@deriving show]
 and typ =
   | Typ of place * base
