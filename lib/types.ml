@@ -5,17 +5,29 @@ exception Todo
 
 type env = (string * typ) list
 
-let psubst p pv gnd = match p with
+let psubst_p p pv gnd = match p with
   | Pv pv' when pv = pv' -> gnd
   | _ -> p
-let rec tsubst typ pv gnd = match typ with
-  | Typ (p, b) -> Typ (psubst p pv gnd, bsubst b pv gnd)
+let rec psubst_t typ pv gnd = match typ with
+  | Typ (p, b) -> Typ (psubst_p p pv gnd, psubst_b b pv gnd)
   | Forall (pv', _) when pv = pv' -> typ
-  | Forall (pv', t) -> Forall (pv', tsubst t pv gnd)
-and bsubst base pv gnd = match base with
-  | Arr (t1, t2) -> Arr (tsubst t1 pv gnd, tsubst t2 pv gnd)
-  | Record fs -> Record (List.map (fun (l, t) -> (l, tsubst t pv gnd)) fs)
+  | Forall (pv', t) -> Forall (pv', psubst_t t pv gnd)
+and psubst_b base pv gnd = match base with
+  | Arr (t1, t2) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd)
+  | Record fs -> Record (List.map (fun (l, t) -> (l, psubst_t t pv gnd)) fs)
   | (Bool | Mu _ | Tv _ | Ref _) -> base
+
+let rec bsubst_t typ tv gnd = match typ with
+  | Typ (p, b) -> Typ (p, bsubst_b b tv gnd)
+  | Forall _ -> raise Todo (* Can you unfold a polymorphic recursive type? *)
+and bsubst_b base tv gnd = match base with
+  | Bool -> base
+  | Arr (t1, t2) -> Arr (bsubst_t t1 tv gnd, bsubst_t t2 tv gnd)
+  | Record fs -> Record (List.map (fun (l, t) -> (l, bsubst_t t tv gnd)) fs)
+  | Mu _ -> raise Todo (* Can you unfold a recursive type under a different type variable? *)
+  | Tv tv' when tv = tv' -> gnd
+  | Tv _ -> base
+  | Ref b -> Ref (bsubst_b b tv gnd)
 
 [@@@warning "-8"] (* Most closely matches paper rules *)
 let rec tp gm exp = match exp with
@@ -53,8 +65,18 @@ let rec tp gm exp = match exp with
   | TLam (p, e) -> Forall (p, tp gm e)
   | TApp (e, p) ->
     let Forall (pv, t) = tp gm e in
-    tsubst t pv p
-  | _ -> raise Todo
+    psubst_t t pv p
+  | Unfd (mutvu, e) ->
+    let Typ (p, Mu (tv, u)) = tp gm e in
+    let Mu (tv', u') = mutvu in
+    assert (tv = tv');
+    assert (u = u');
+    Typ (p, bsubst_b u tv (Mu (tv, u)))
+  | Fd (mutvu, e) ->
+    let Typ (p, unfd) = tp gm e in
+    let Mu (tv, u) = mutvu in
+    assert (bsubst_b u tv mutvu = unfd);
+    Typ (p, mutvu)
 
 let%test "bl" = tp [] (True Server) = Typ (Server, Bool)
 let server_lam = (Lam (Server, "x", Typ (Server, Bool), (True Client)))
@@ -71,3 +93,6 @@ let lamalpha = Lam (Server, "x", Typ (Pv "a", Bool), Id "x")
 let id = TLam ("a", lamalpha)
 let%test "polyid" = tp [] (App (TApp (id, Server), (True Server))) = Typ (Server, Bool)
 let%test "polyfail" = does_raise @@ fun () -> tp [] (App (TApp (id, Server), (True Client)))
+let inf = Mu ("a", Ref (Tv "a"))
+let fold_unfold_x = Fd (inf, Unfd (inf, Id "x"))
+let%test "fold-unfold" = tp [] (Lam (Server, "x", Typ (Server, inf), fold_unfold_x)) = Typ (Server, Arr (Typ (Server, inf), Typ (Server, inf)))
