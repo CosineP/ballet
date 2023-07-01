@@ -17,7 +17,7 @@ type place =
 type base =
   | Bool
   | Arr of typ * typ
-  | Record of (label * typ) list
+  | Record of (label * base) list
   | Mu of tv * base
   | Tv of tv
   | Ref of typ
@@ -25,6 +25,7 @@ type base =
 and typ =
   | Typ of place * base
   | Forall of pv * typ
+  | Exists of pv * typ
 [@@deriving show]
 
 type exp =
@@ -43,5 +44,8 @@ type exp =
   | TApp of exp * place
   | Fd of base * exp
   | Unfd of base * exp
+  | Send of place * exp
+  | Pack of place * exp * pv * typ
+  | Unpack of pv * id * exp * exp
 [@@deriving show]
 

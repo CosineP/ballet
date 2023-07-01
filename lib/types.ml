@@ -14,7 +14,7 @@ let rec psubst_t typ pv gnd = match typ with
   | Forall (pv', t) -> Forall (pv', psubst_t t pv gnd)
 and psubst_b base pv gnd = match base with
   | Arr (t1, t2) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd)
-  | Record fs -> Record (List.map (fun (l, t) -> (l, psubst_t t pv gnd)) fs)
+  | Record fs -> Record (List.map (fun (l, t) -> (l, psubst_b t pv gnd)) fs)
   | (Bool | Mu _ | Tv _ | Ref _) -> base
 
 let rec bsubst_t typ tv gnd = match typ with
@@ -23,7 +23,7 @@ let rec bsubst_t typ tv gnd = match typ with
 and bsubst_b base tv gnd = match base with
   | Bool -> base
   | Arr (t1, t2) -> Arr (bsubst_t t1 tv gnd, bsubst_t t2 tv gnd)
-  | Record fs -> Record (List.map (fun (l, t) -> (l, bsubst_t t tv gnd)) fs)
+  | Record fs -> Record (List.map (fun (l, t) -> (l, bsubst_b t tv gnd)) fs)
   | Mu _ -> raise Todo (* Can you unfold a recursive type under a different type variable? *)
   | Tv tv' when tv = tv' -> gnd
   | Tv _ -> base
@@ -45,10 +45,11 @@ let rec tp gm exp = match exp with
     t
   | Id x -> List.assoc x gm
   | Rcd (p, fs) ->
-    Typ (p, Record (List.map (fun (l, e) -> (l, tp gm e)) fs))
+    Typ (p, Record (List.map (fun (l, e) ->
+      (l, let Typ (p', u) = tp gm e in assert (p = p'); u)) fs))
   | Fld (e, l) ->
-    let Typ (_, Record fs) = tp gm e in
-    List.assoc l fs
+    let Typ (p, Record fs) = tp gm e in
+    Typ (p, List.assoc l fs)
   | Rf (p, e) ->
     let t = tp gm e in
     Typ (p, Ref t)
