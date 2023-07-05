@@ -32,89 +32,111 @@ and bsubst_b base tv gnd = match base with
   | Tv _ -> base
   | Ref b -> Ref (bsubst_t b tv gnd)
 
+(* There's a library function for this but i forget its name and can't find it
+on Google omg *)
+let drop _ = ()
+let rec ok_p dt p = match p with
+  | Named _ -> ()
+  | Pv pv -> drop @@ List.find (fun e -> e = pv) dt
+and ok_b dt b = match b with
+  | (Bool | Tv _) -> ()
+  | Arr (t1, t2) -> ok_t dt t1; ok_t dt t2
+  | Record bs -> drop @@ List.iter (fun (_, b) -> ok_b dt b) bs
+  | Mu (_, b) -> ok_b dt b
+  | Ref t -> ok_t dt t
+and ok_t dt typ = match typ with
+  | Typ (p, b) -> ok_p dt p; ok_b dt b
+  | (Forall (pv, t) | Exists (pv, t)) -> ok_t (pv :: dt) t
+
 [@@@warning "-8"] (* Most closely matches paper rules *)
-let rec tp gm exp = match exp with
-  | (True p | False p) -> Typ (p, Bool)
-  | Lam (p, x, t, e) -> 
+let rec tp gm dt exp = match exp with
+  | (True p | False p) -> ok_p dt p; Typ (p, Bool)
+  | Lam (p, x, t, e) ->
+    ok_p dt p;
     let gm = (x, t) :: gm in
-    let s = tp gm e in
+    let s = tp gm dt e in
     Typ (p, Arr (t, s))
   | App (e1, e2) ->
-    let Typ (p, Arr (Typ (p', u), t)) = tp gm e1 in
+    let Typ (p, Arr (Typ (p', u), t)) = tp gm dt e1 in
     assert (p = p');
-    let Typ (p', u') = tp gm e2 in
+    let Typ (p', u') = tp gm dt e2 in
     assert (p = p');
     assert (u = u');
     t
   | Id x -> List.assoc x gm
   | Rcd (p, fs) ->
+    ok_p dt p;
     Typ (p, Record (List.map (fun (l, e) ->
-      (l, let Typ (p', u) = tp gm e in assert (p = p'); u)) fs))
+      (l, let Typ (p', u) = tp gm dt e in assert (p = p'); u)) fs))
   | Fld (e, l) ->
-    let Typ (p, Record fs) = tp gm e in
+    let Typ (p, Record fs) = tp gm dt e in
     Typ (p, List.assoc l fs)
   | Rf (p, e) ->
-    let t = tp gm e in
+    ok_p dt p;
+    let t = tp gm dt e in
     Typ (p, Ref t)
   | Drf e ->
-    let Typ (_, Ref t) = tp gm e in
+    let Typ (_, Ref t) = tp gm dt e in
     t
   | Srf (e1, e2) ->
-    let Typ (p, Ref t) = tp gm e1 in
-    let t' = tp gm e2 in
+    let Typ (p, Ref t) = tp gm dt e1 in
+    let t' = tp gm dt e2 in
     assert (t = t');
     Typ (p, Ref t)
-  | TLam (p, e) -> Forall (p, tp gm e)
+  | TLam (p, e) -> Forall (p, tp gm (p :: dt) e)
   | TApp (e, p) ->
-    let Forall (pv, t) = tp gm e in
+    ok_p dt p;
+    let Forall (pv, t) = tp gm dt e in
     psubst_t t pv p
   | Unfd (mutvu, e) ->
-    let Typ (p, Mu (tv, u)) = tp gm e in
+    let Typ (p, Mu (tv, u)) = tp gm dt e in
     let Mu (tv', u') = mutvu in
     assert (tv = tv');
     assert (u = u');
     Typ (p, bsubst_b u tv (Mu (tv, u)))
   | Fd (mutvu, e) ->
-    let Typ (p, unfd) = tp gm e in
+    let Typ (p, unfd) = tp gm dt e in
     let Mu (tv, u) = mutvu in
     assert (bsubst_b u tv mutvu = unfd);
     Typ (p, mutvu)
   | Send (p, e) ->
-    let Typ (_, u) = tp gm e in
+    ok_p dt p;
+    let Typ (_, u) = tp gm dt e in
     Typ (p, u)
   | Pack (p, e, pv, t) ->
-    let tpp = tp gm e in
+    let tpp = tp gm dt e in
     assert (psubst_t t pv p = tpp);
-    (* TODO: Delta *)
+    ok_t dt (Exists (pv, t));
     Exists (pv, t)
   | Unpack (pv, x, e1, e2) ->
-    let Exists (pv', t1) = tp gm e1 in
+    let Exists (pv', t1) = tp gm dt e1 in
     assert (pv = pv');
-    let t2 = tp ((x, t1) :: gm) e2 in
-    (* TODO: Delta *)
+    let t2 = tp ((x, t1) :: gm) (pv :: dt) e2 in
+    ok_t dt t2;
     t2
 
 (* We can do so much more than client/server.  But this makes testing easier *)
 let c = Named "Client"
 let s = Named "Server"
-let%test "bl" = tp [] (True s) = Typ (s, Bool)
+let typeof = tp [] []
+let%test "bl" = typeof (True s) = Typ (s, Bool)
 let server_lam = (Lam (s, "x", Typ (s, Bool), (True c)))
-let%test "lam" = tp [] server_lam = Typ (s, Arr (Typ (s, Bool), Typ (c, Bool)))
-let%test "hetero app" = does_raise @@ fun () -> tp [] (App (server_lam, True c))
-let%test "non-lam app" = does_raise @@ fun () -> tp [] (App (True c, True c))
-let%test "id" = tp [] (App ((Lam (s, "x", Typ (s, Bool), (Id "x"))), (True s))) = Typ (s, Bool)
-let%test "rec-fld" = tp [] (Fld (Rcd (s, [("f", (True s))]), "f")) = Typ (s, Bool)
-let%test "ref" = tp [] (Rf (s, (True s))) = Typ (s, Ref (Typ (s, Bool)))
-let%test "set/deref" = tp [] (Drf (Srf (Rf (c, True c), (False c)))) = Typ (c, Bool)
-let%test "hetero set" = does_raise @@ fun () -> tp [] (Srf (Rf (c, True c), (False s)))
+let%test "lam" = typeof server_lam = Typ (s, Arr (Typ (s, Bool), Typ (c, Bool)))
+let%test "hetero app" = does_raise @@ fun () -> typeof (App (server_lam, True c))
+let%test "non-lam app" = does_raise @@ fun () -> typeof (App (True c, True c))
+let%test "id" = typeof (App ((Lam (s, "x", Typ (s, Bool), (Id "x"))), (True s))) = Typ (s, Bool)
+let%test "rec-fld" = typeof (Fld (Rcd (s, [("f", (True s))]), "f")) = Typ (s, Bool)
+let%test "ref" = typeof (Rf (s, (True s))) = Typ (s, Ref (Typ (s, Bool)))
+let%test "set/deref" = typeof (Drf (Srf (Rf (c, True c), (False c)))) = Typ (c, Bool)
+let%test "hetero set" = does_raise @@ fun () -> typeof (Srf (Rf (c, True c), (False s)))
 let lamalpha = Lam (s, "x", Typ (Pv "a", Bool), Id "x")
 let id = TLam ("a", lamalpha)
-let%test "polyid" = tp [] (App (TApp (id, s), (True s))) = Typ (s, Bool)
-let%test "polyfail" = does_raise @@ fun () -> tp [] (App (TApp (id, s), (True c)))
+let%test "polyid" = typeof (App (TApp (id, s), (True s))) = Typ (s, Bool)
+let%test "polyfail" = does_raise @@ fun () -> typeof (App (TApp (id, s), (True c)))
 let inf = Mu ("a", Ref (Typ (c, (Tv "a"))))
 let fold_unfold_x = Fd (inf, Unfd (inf, Id "x"))
-let%test "fold-unfold" = tp [] (Lam (s, "x", Typ (s, inf), fold_unfold_x)) = Typ (s, Arr (Typ (s, inf), Typ (s, inf)))
-let%test "send" = tp [] (Send (c, True s)) = Typ (c, Bool)
+let%test "fold-unfold" = typeof (Lam (s, "x", Typ (s, inf), fold_unfold_x)) = Typ (s, Arr (Typ (s, inf), Typ (s, inf)))
+let%test "send" = typeof (Send (c, True s)) = Typ (c, Bool)
 let packed = Pack (c, (True c), "P", Typ (Pv "P", Bool))
 let unpack = Unpack ("P", "x", packed, Send (s, Id "x"))
-let%test "unpack-pack" = tp [] unpack = Typ (s, Bool)
+let%test "unpack-pack" = typeof unpack = Typ (s, Bool)
