@@ -12,6 +12,8 @@ let rec psubst_t typ pv gnd = match typ with
   | Typ (p, b) -> Typ (psubst_p p pv gnd, psubst_b b pv gnd)
   | Forall (pv', _) when pv = pv' -> typ
   | Forall (pv', t) -> Forall (pv', psubst_t t pv gnd)
+  | Exists (pv', _) when pv = pv' -> typ
+  | Exists (pv', t) -> Exists (pv', psubst_t t pv gnd)
 and psubst_b base pv gnd = match base with
   | Arr (t1, t2) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd)
   | Record fs -> Record (List.map (fun (l, t) -> (l, psubst_b t pv gnd)) fs)
@@ -20,6 +22,7 @@ and psubst_b base pv gnd = match base with
 let rec bsubst_t typ tv gnd = match typ with
   | Typ (p, b) -> Typ (p, bsubst_b b tv gnd)
   | Forall _ -> raise Todo (* Can you unfold a polymorphic recursive type? *)
+  | Exists _ -> raise Todo (* Can you unfold an existentially qualified type? *)
 and bsubst_b base tv gnd = match base with
   | Bool -> base
   | Arr (t1, t2) -> Arr (bsubst_t t1 tv gnd, bsubst_t t2 tv gnd)
