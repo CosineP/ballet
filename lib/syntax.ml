@@ -8,8 +8,6 @@ type label = string
 [@@deriving show]
 
 type place =
-  | Server
-  | Client
   | Named of string
   | Pv of pv
 [@@deriving show]
