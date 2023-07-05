@@ -79,6 +79,9 @@ let rec tp gm exp = match exp with
     let Mu (tv, u) = mutvu in
     assert (bsubst_b u tv mutvu = unfd);
     Typ (p, mutvu)
+  | Send (p, e) ->
+    let Typ (_, u) = tp gm e in
+    Typ (p, u)
 
 let%test "bl" = tp [] (True Server) = Typ (Server, Bool)
 let server_lam = (Lam (Server, "x", Typ (Server, Bool), (True Client)))
@@ -97,3 +100,4 @@ let%test "polyfail" = does_raise @@ fun () -> tp [] (App (TApp (id, Server), (Tr
 let inf = Mu ("a", Ref (Typ (Client, (Tv "a"))))
 let fold_unfold_x = Fd (inf, Unfd (inf, Id "x"))
 let%test "fold-unfold" = tp [] (Lam (Server, "x", Typ (Server, inf), fold_unfold_x)) = Typ (Server, Arr (Typ (Server, inf), Typ (Server, inf)))
+let%test "send" = tp [] (Send (Client, True Server)) = Typ (Client, Bool)
