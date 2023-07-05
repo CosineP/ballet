@@ -82,6 +82,17 @@ let rec tp gm exp = match exp with
   | Send (p, e) ->
     let Typ (_, u) = tp gm e in
     Typ (p, u)
+  | Pack (p, e, pv, t) ->
+    let tpp = tp gm e in
+    assert (psubst_t t pv p = tpp);
+    (* TODO: Delta *)
+    Exists (pv, t)
+  | Unpack (pv, x, e1, e2) ->
+    let Exists (pv', t1) = tp gm e1 in
+    assert (pv = pv');
+    let t2 = tp ((x, t1) :: gm) e2 in
+    (* TODO: Delta *)
+    t2
 
 let%test "bl" = tp [] (True Server) = Typ (Server, Bool)
 let server_lam = (Lam (Server, "x", Typ (Server, Bool), (True Client)))
@@ -101,3 +112,6 @@ let inf = Mu ("a", Ref (Typ (Client, (Tv "a"))))
 let fold_unfold_x = Fd (inf, Unfd (inf, Id "x"))
 let%test "fold-unfold" = tp [] (Lam (Server, "x", Typ (Server, inf), fold_unfold_x)) = Typ (Server, Arr (Typ (Server, inf), Typ (Server, inf)))
 let%test "send" = tp [] (Send (Client, True Server)) = Typ (Client, Bool)
+let packed = Pack (Client, (True Client), "P", Typ (Pv "P", Bool))
+let unpack = Unpack ("P", "x", packed, Send (Server, Id "x"))
+let%test "unpack-pack" = tp [] unpack = Typ (Server, Bool)
