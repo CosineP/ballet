@@ -53,6 +53,11 @@ let rec subst exp x v = match exp with
   | (True _ | False _ | Id _) -> exp
   | _ -> raise Todo
 
+let send p q c k =
+  (* i want to use an effect for this but i don't have ocaml 5 *)
+  print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
+    ^ show_exp c ^ ", " ^ show_cont k ^ ")"
+
 let step (c, s, k) = match (c, k) with
   (* i don't like that this is None... but no "step" really happened! *)
   | (App (e1, e2), k) -> (None, (e1, s, Arg e2 :: k))
@@ -75,9 +80,7 @@ let eval e =
         | (p, None) -> ev p csk
         | (p, Some q) ->
           let (c, _, k) = csk in
-          (* i want to use an effect for this but i don't have ocaml 5 *)
-          print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
-            ^ show_exp c ^ ", " ^ show_cont k ^ ")";
+          send p q c k;
           ev q csk in
   let (ve, _, _) = ev (Named "THE MOTHERFISH") (e, [], []) in
   v_of_e ve
