@@ -23,9 +23,12 @@ type vnop =
 type value = place * vnop
 [@@deriving show]
 
+type env = (id * exp) list
+[@@deriving show]
+
 (* Can i use values / place values somehow here? *)
 type ctx =
-  | Fun of place * id * exp
+  | Fun of place * id * exp * env
   | Arg of exp
   | Flds of place * (label * exp) list * label * (label * exp) list
   | Lbl of label
@@ -43,46 +46,38 @@ let rec v_of_e e = match e with
 
 let is_v e = not @@ does_raise (fun () -> v_of_e e)
 
-let rec subst exp x v = match exp with
-  | Lam (_, x', _, _) when x = x' -> exp
-  | Lam (p, x', t, e) -> Lam (p, x', t, subst e x v)
-  | App (e1, e2) -> App (subst e1 x v, subst e2 x v)
-  | Id x' when x = x' -> v
-  | Rcd (p, fs) -> Rcd (p, List.map (fun (l, f) -> (l, subst f x v)) fs)
-  | Fld (e, l) -> Fld (subst e x v, l)
-  | (True _ | False _ | Id _) -> exp
-  | _ -> raise Todo
-
-let send p q c k =
+let send p q c e k =
   (* i want to use an effect for this but i don't have ocaml 5 *)
   print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
-    ^ show_exp c ^ ", " ^ show_cont k ^ ")"
+    ^ show_exp c ^ ", " ^ show_env e ^ ", " ^ show_cont k ^ ")"
 
-let step (c, s, k) = match (c, k) with
+let step (c, ((env_p, binds) as env), s, k) = match (c, k) with
   (* i don't like that this is None... but no "step" really happened! *)
-  | (App (e1, e2), k) -> (None, (e1, s, Arg e2 :: k))
-  | (Lam (p, x, _, e1), Arg e2 :: k) -> (Some p, (e2, s, Fun (p, x, e1) :: k))
-  | (ve, Fun (p, x, e) :: k) -> (Some p, (subst e x ve, s, k))
-  | (Rcd (p, (l, e) :: es), k) when not (is_v c) -> (Some p, (e, s, Flds (p, [], l, es) :: k))
-  | (ve, Flds (p, vs, vl, (l, e) :: es) :: k) -> (Some p, (e, s, Flds (p, (vl, ve) :: vs, l, es) :: k))
-  | (ve, Flds (p, vs, vl, []) :: k) -> (Some p, (Rcd (p, (vl, ve) :: vs), s, k))
-  | (Fld (e, l), k) -> (None, (e, s, Lbl l :: k))
-  | (Rcd (p, es), Lbl l :: k) -> (Some p, (List.assoc l es, s, k))
+  | (App (e1, e2), k) -> (None, (e1, env, s, Arg e2 :: k))
+  | (Lam (p, x, _, e1), Arg e2 :: k) -> (Some p, (e2, env, s, Fun (p, x, e1, binds) :: k))
+  | (ve, Fun (p, x, e, env) :: k) -> (Some p, (e, (p, (x, ve) :: env), s, k))
+  | (Id x, k) -> (Some env_p, (List.assoc x binds, env, s, k))
+  | (Rcd (p, (l, e) :: es), k) when not (is_v c) -> (Some p, (e, env, s, Flds (p, [], l, es) :: k))
+  | (ve, Flds (p, vs, vl, (l, e) :: es) :: k) -> (Some p, (e, env, s, Flds (p, (vl, ve) :: vs, l, es) :: k))
+  | (ve, Flds (p, vs, vl, []) :: k) -> (Some p, (Rcd (p, (vl, ve) :: vs), env, s, k))
+  | (Fld (e, l), k) -> (None, (e, env, s, Lbl l :: k))
+  | (Rcd (p, es), Lbl l :: k) -> (Some p, (List.assoc l es, env, s, k))
   | _ -> raise Todo
 
 let eval e =
-  let rec ev p csk = match csk with
-    | (c, s, []) when is_v c -> (c, s, [])
+  let rec ev p cesk = match cesk with
+    | (c, e, s, []) when is_v c -> (c, e, s, [])
     | _ ->
-      let (q, csk) = step csk in
+      let (q, cesk) = step cesk in
       match (p, q) with
-        | (p, Some p') when p = p' -> ev p csk
-        | (p, None) -> ev p csk
+        | (p, Some p') when p = p' -> ev p cesk
+        | (p, None) -> ev p cesk
         | (p, Some q) ->
-          let (c, _, k) = csk in
-          send p q c k;
-          ev q csk in
-  let (ve, _, _) = ev (Named "THE MOTHERFISH") (e, [], []) in
+          let (c, (_, e), _, k) = cesk in
+          send p q c e k;
+          ev q cesk in
+  let starting_placement = Named "THE MOTHERFISH" in
+  let (ve, _, _, _) = ev starting_placement (e, (starting_placement, []), [], []) in
   v_of_e ve
 
 let c = Named "Client"
