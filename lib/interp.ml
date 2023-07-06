@@ -10,6 +10,7 @@ exception Todo
 type loc = string
 [@@deriving show]
 
+(* Is this still used? *)
 type vnop =
   | T
   | F
@@ -18,11 +19,13 @@ type vnop =
   | Loc of loc
 [@@deriving show]
 
+(* Is this still used? *)
 type value = place * vnop
 [@@deriving show]
 
+(* Can i use values / place values somehow here? *)
 type ctx =
-  | Fun of id * exp
+  | Fun of place * id * exp
   | Arg of exp
 [@@deriving show]
 
@@ -44,15 +47,16 @@ let rec subst exp x v = match exp with
   | _ -> raise Todo
 
 let step (c, s, k) = match (c, k) with
-  | (App (e1, e2), k) -> (e1, s, Arg e2 :: k)
-  | (Lam (_, x, _, e1), Arg e2 :: k) -> (e2, s, Fun (x, e1) :: k)
-  | (ve, Fun (x, e) :: k) -> (subst e x ve, s, k)
+  (* i don't like that this is None... but no "step" really happened! *)
+  | (App (e1, e2), k) -> (None, (e1, s, Arg e2 :: k))
+  | (Lam (p, x, _, e1), Arg e2 :: k) -> (None, (e2, s, Fun (p, x, e1) :: k))
+  | (ve, Fun (p, x, e) :: k) -> (Some p, (subst e x ve, s, k))
   | _ -> raise Todo
 
 let eval e =
   let rec ev csk = match csk with
     | (c, s, []) when not @@ does_raise (fun () -> v_of_e c) -> (c, s, [])
-    | _ -> ev (step csk) in
+    | _ -> let (_, csk) = step csk in ev csk in
   let (ve, _, _) = ev (e, [], []) in
   v_of_e ve
 
