@@ -49,15 +49,26 @@ let rec subst exp x v = match exp with
 let step (c, s, k) = match (c, k) with
   (* i don't like that this is None... but no "step" really happened! *)
   | (App (e1, e2), k) -> (None, (e1, s, Arg e2 :: k))
-  | (Lam (p, x, _, e1), Arg e2 :: k) -> (None, (e2, s, Fun (p, x, e1) :: k))
+  | (Lam (p, x, _, e1), Arg e2 :: k) -> (Some p, (e2, s, Fun (p, x, e1) :: k))
   | (ve, Fun (p, x, e) :: k) -> (Some p, (subst e x ve, s, k))
   | _ -> raise Todo
 
 let eval e =
-  let rec ev csk = match csk with
+  let rec ev p csk = match csk with
     | (c, s, []) when not @@ does_raise (fun () -> v_of_e c) -> (c, s, [])
-    | _ -> let (_, csk) = step csk in ev csk in
-  let (ve, _, _) = ev (e, [], []) in
+    | _ ->
+      print_endline @@ show_place p;
+      let (q, csk) = step csk in
+      match (p, q) with
+        | (p, Some p') when p = p' -> ev p csk
+        | (p, None) -> ev p csk
+        | (p, Some q) ->
+          let (c, _, k) = csk in
+          (* i want to use an effect for this but i don't have ocaml 5 *)
+          print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
+            ^ show_exp c ^ ", " ^ show_cont k ^ ")";
+          ev q csk in
+  let (ve, _, _) = ev (Named "THE MOTHERFISH") (e, [], []) in
   v_of_e ve
 
 let c = Named "Client"
