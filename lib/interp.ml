@@ -38,6 +38,9 @@ type ctx =
   | Lbl of label
   | RefP of place
   | SendP of place
+  | DrfC
+  | SrfL of exp
+  | SrfR of place * loc
 [@@deriving show]
 
 type cont = ctx list
@@ -68,7 +71,12 @@ let step (c, env, s, k) = match (c, k) with
   | (Exp (Fld (e, l)), k) -> (None, (Exp e, env, s, Lbl l :: k))
   | (Val (p, RcdV es), Lbl l :: k) -> (Some p, (Val (p, List.assoc l es), env, s, k))
   | (Exp (Rf (p, e)), k) -> (Some p, (Exp e, env, s, RefP p :: k))
-  | (Val (p, v), RefP q :: k) -> let l = floc () in (Some p, (Val (p, Loc l), env, (l, v) :: s, SendP q :: k))
+  | (Val (p, v), RefP q :: k) -> let l = floc () in (Some p, (Val (p, Loc l), env, (l, (p, v)) :: s, SendP q :: k))
+  | (Exp (Drf e), k) -> (None, (Exp e, env, s, DrfC :: k))
+  | (Val (p, Loc l), DrfC :: k) -> (Some p, (Val (List.assoc l s), env, s, k))
+  | (Exp (Srf (e1, e2)), k) -> (None, (Exp e1, env, s, SrfL e2 :: k))
+  | (Val (p, Loc l), SrfL e :: k) -> (None, (Exp e, env, s, SrfR (p, l) :: k))
+  | (Val v, SrfR (p, l) :: k) -> (None, (Val (p, Loc l), env, (l, v) :: s (* need to remove old? *), k))
   | (Exp (Send (p, e)), k) -> (None, (Exp e, env, s, SendP p :: k))
   | (Val (p, v), SendP q :: k) ->
     send p q c env k;
@@ -99,4 +107,7 @@ let vid = App ((Lam (s, "x", Typ (s, Bool), (Id "x"))), (True s))
 let%test "id" = eval vid = (s, T)
 let%test "rec" = eval (Rcd (s, [("f", True s)])) = (s, RcdV [("f", T)])
 let%test "rec-fld" = eval (Fld (Rcd (s, [("f", True s)]), "f")) = (s, T)
+let%test "ref" = eval (Rf (s, (True s))) = (s, Loc 1)
+let%test "drf" = eval (Drf (Rf (c, True c))) = (c, T)
+let%test "set/deref" = eval (Drf (Srf (Rf (c, True c), (False c)))) = (c, F)
 let%test "send" = eval (Send (c, (True s))) = (c, T)
