@@ -7,7 +7,7 @@ open Syntax
 exception Todo
 exception Impossible
 
-type loc = string
+type loc = int
 [@@deriving show]
 
 (* Is this still used? *)
@@ -37,6 +37,7 @@ type ctx =
   | Flds of place * (label * vnop) list * label * (label * exp) list
   | Lbl of label
   | RefP of place
+  | SendP of place
 [@@deriving show]
 
 type cont = ctx list
@@ -46,6 +47,10 @@ let send p q c e k =
   (* i want to use an effect for this but i don't have ocaml 5 *)
   print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
     ^ show_ctrl c ^ ", " ^ show_env e ^ ", " ^ show_cont k ^ ")"
+
+let next_loc = ref 0
+
+let floc () = next_loc := !next_loc + 1; !next_loc
 
 let step (c, env, s, k) = match (c, k) with
   (* i don't like that this is None... but no "step" really happened! *)
@@ -62,6 +67,12 @@ let step (c, env, s, k) = match (c, k) with
   | (Val (_, v), Flds (p, vs, vl, []) :: k) -> (Some p, (Val (p, RcdV ((vl, v) :: vs)), env, s, k))
   | (Exp (Fld (e, l)), k) -> (None, (Exp e, env, s, Lbl l :: k))
   | (Val (p, RcdV es), Lbl l :: k) -> (Some p, (Val (p, List.assoc l es), env, s, k))
+  | (Exp (Rf (p, e)), k) -> (Some p, (Exp e, env, s, RefP p :: k))
+  | (Val (p, v), RefP q :: k) -> let l = floc () in (Some p, (Val (p, Loc l), env, (l, v) :: s, SendP q :: k))
+  | (Exp (Send (p, e)), k) -> (None, (Exp e, env, s, SendP p :: k))
+  | (Val (p, v), SendP q :: k) ->
+    send p q c env k;
+    (Some p, (Val (q, v), env, s, k))
   | _ ->
     print_endline ("unmatched: (" ^ show_ctrl c ^ ", " ^ show_env env ^ ", " ^ show_cont k ^ ")");
     raise Todo
@@ -86,5 +97,6 @@ let c = Named "Client"
 let s = Named "Server"
 let vid = App ((Lam (s, "x", Typ (s, Bool), (Id "x"))), (True s))
 let%test "id" = eval vid = (s, T)
-let%test "rec" = eval (Rcd (s, [("f", vid)])) = (s, RcdV [("f", T)])
-let%test "rec-fld" = eval (Fld (Rcd (s, [("f", vid)]), "f")) = (s, T)
+let%test "rec" = eval (Rcd (s, [("f", True s)])) = (s, RcdV [("f", T)])
+let%test "rec-fld" = eval (Fld (Rcd (s, [("f", True s)]), "f")) = (s, T)
+let%test "send" = eval (Send (c, (True s))) = (c, T)
