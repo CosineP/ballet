@@ -1,5 +1,4 @@
 open Syntax
-open Base.Exn
 
 (* Implements a CEK machine *)
 (* Currently actually implements a CSK machine for state and using substitution
@@ -15,21 +14,21 @@ type loc = string
 type vnop =
   | T
   | F
-  | LamV of id * exp
+  | LamV of id * exp * env
   | RcdV of (label * vnop) list
   | Loc of loc
 [@@deriving show]
 
 (* Is this still used? *)
-type value = place * vnop
+and value = place * vnop
+[@@deriving show]
+
+and env = (id * value) list
 [@@deriving show]
 
 type ctrl =
   | Exp of exp
   | Val of value
-[@@deriving show]
-
-type env = (id * value) list
 [@@deriving show]
 
 type ctx =
@@ -43,15 +42,6 @@ type ctx =
 type cont = ctx list
 [@@deriving show]
 
-let rec v_of_e e = match e with
-  | True p -> (p, T)
-  | False p -> (p, F)
-  | Lam (p, x, _, e) -> (p, LamV (x, e))
-  | Rcd (p, fs) -> (p, RcdV (List.map (fun (l, e) -> let (_, v) = v_of_e e in (l, v)) fs))
-  | _ -> raise Todo
-
-let is_v e = not @@ does_raise (fun () -> v_of_e e)
-
 let send p q c e k =
   (* i want to use an effect for this but i don't have ocaml 5 *)
   print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
@@ -61,11 +51,13 @@ let step (c, env, s, k) = match (c, k) with
   (* i don't like that this is None... but no "step" really happened! *)
   | (Exp (True p), k) -> (Some p, (Val (p, T), env, s, k))
   | (Exp (False p), k) -> (Some p, (Val (p, F), env, s, k))
+  | (Exp (Lam (p, x, _, e)), k) -> (Some p, (Val (p, LamV (x, e, env)), env, s, k))
   | (Exp (App (e1, e2)), k) -> (None, (Exp e1, env, s, Arg e2 :: k))
-  | (Exp (Lam (p, x, _, e1)), Arg e2 :: k) -> (Some p, (Exp e2, env, s, Fun (p, x, e1, env) :: k))
+  | (Val (p, LamV (x, e1, env)), Arg e2 :: k) -> (Some p, (Exp e2, env, s, Fun (p, x, e1, env) :: k))
   | (Val v, Fun (p, x, e, env) :: k) -> (Some p, (Exp e, (x, v) :: env, s, k))
   | (Exp (Id x), k) -> let (p, v) = List.assoc x env in (Some p, (Val (p, v), env, s, k))
   | (Exp (Rcd (p, (l, e) :: es)), k) -> (Some p, (Exp e, env, s, Flds (p, [], l, es) :: k))
+  | (Exp (Rcd (p, [])), k) -> (Some p, (Val (p, RcdV []), env, s, k))
   | (Val (_, v), Flds (p, vs, vl, (l, e) :: es) :: k) -> (Some p, (Exp e, env, s, Flds (p, (vl, v) :: vs, l, es) :: k))
   | (Val (_, v), Flds (p, vs, vl, []) :: k) -> (Some p, (Val (p, RcdV ((vl, v) :: vs)), env, s, k))
   | (Exp (Fld (e, l)), k) -> (None, (Exp e, env, s, Lbl l :: k))
