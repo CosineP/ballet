@@ -1,5 +1,9 @@
 open Syntax
+open Sugar
+open Types
 open Parse
+
+exception Todo
 
 let s = Named "s"
 let dm = Named "dummy"
@@ -24,3 +28,15 @@ let%test "parse send" = parse_exp {|send c true s|} = Send (Named "c", tru)
 
 (* Sugar parser tests *)
 let%test "parse let" = parse {|let x = true s|} = [Let ("x", [], tru)]
+
+let rec desugar gm tops outer = match tops with
+  | [] -> outer
+  | t::rest -> (match t with
+    | Let (x, args, e) -> (match List.rev args with
+      | [] ->
+        (* Let-type-inference is easy! *)
+        let t = tp gm [] e in
+        App (Lam (dm, x, t, desugar ((x, t)::gm) rest outer), e)
+      | (a,t)::rrest ->
+        desugar gm (Let (x, List.rev rrest, (Lam (dm, a, t, e))) :: rest) outer)
+    | _ -> raise Todo)
