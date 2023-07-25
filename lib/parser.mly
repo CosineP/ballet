@@ -1,5 +1,6 @@
 %{
 open Syntax
+open Sugar
 %}
 
 %token EOF
@@ -25,8 +26,10 @@ open Syntax
 %token CAPLAM
 %token AT
 %token SEND
+%token LET
 
 %start <exp> expp
+%start <program> program
 
 %%
 
@@ -87,4 +90,13 @@ exp:
 
 expp:
   | e = exp; EOF { e }
+  ;
+
+top:
+  | LET id EQ exp { Let ($2, [], $4) }
+  ;
+
+program:
+  | top program { $1 :: $2 }
+  | top EOF { [$1] }
   ;

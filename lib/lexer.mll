@@ -31,6 +31,7 @@ rule read =
   | "Λ" { CAPLAM }
   | "at" { AT }
   | "send" { SEND }
+  | "let" { LET }
   | low letter* { LOW (Lexing.lexeme lexbuf) }
   | cap letter* { CAP (Lexing.lexeme lexbuf) }
   | ' ' { read lexbuf }
