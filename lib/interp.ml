@@ -10,11 +10,11 @@ exception Impossible
 type loc = int
 [@@deriving show]
 
-(* Is this still used? *)
 type vnop =
   | T
   | F
   | LamV of id * exp * env
+  | TLamV of pv * vnop
   | RcdV of (label * vnop) list
   | Loc of loc
 [@@deriving show]
@@ -24,6 +24,8 @@ and value = place * vnop
 [@@deriving show]
 
 and env = (id * value) list
+[@@deriving show]
+and penv = (pv * place) list
 [@@deriving show]
 
 type ctrl =
@@ -41,6 +43,8 @@ type ctx =
   | DrfC
   | SrfL of exp
   | SrfR of place * loc
+  | TFun of pv
+  | TArg of place
 [@@deriving show]
 
 type cont = ctx list
@@ -56,7 +60,7 @@ let next_loc = ref 0
 let floc () = next_loc := !next_loc + 1; !next_loc
 
 type m = {
-  pe: (id * place) list;
+  pe: penv;
   e: env;
   s: (loc * value) list;
 }
@@ -76,7 +80,8 @@ let step (c, m, k) = match (c, k) with
   | (Exp (Drf e), k) -> (None, (Exp e, m, DrfC :: k))
   | (Exp (Srf (e1, e2)), k) -> (None, (Exp e1, m, SrfL e2 :: k))
   | (Exp (Send (p, e)), k) -> (None, (Exp e, m, SendP p :: k))
-  | (Exp (TLam (_, e)), k) -> (None, (Exp e, m, k))
+  | (Exp (TLam (pv, e)), k) -> (None, (Exp e, m, TFun pv :: k))
+  | (Exp (TApp (e, p)), k) -> (None, (Exp e, m, TArg p :: k))
   | (Val (p, LamV (x, e1, env)), Arg e2 :: k) -> (Some p, (Exp e2, m, Fun (p, x, e1, env) :: k))
   | (Val v, Fun (p, x, e, env) :: k) -> (Some p, (Exp e, { m with e = (x, v) :: env }, k))
   | (Val (_, v), Flds (p, vs, vl, (l, e) :: es) :: k) -> (Some p, (Exp e, m, Flds (p, (vl, v) :: vs, l, es) :: k))
@@ -87,6 +92,8 @@ let step (c, m, k) = match (c, k) with
   | (Val (p, Loc l), SrfL e :: k) -> (Some p, (Exp e, m, SrfR (p, l) :: k))
   | (Val v, SrfR (p, l) :: k) -> (Some p, (Val (p, Loc l), { m with s = (l, v) :: m.s (* need to remove old? *) }, k))
   | (Val (p, v), SendP q :: k) -> send p q c m.e k; (Some p, (Val (q, v), m, k))
+  | (Val (p, v), TFun pv :: k) -> (Some p, (Val (p, TLamV (pv, v)), m, k))
+  | (Val (vp, TLamV (pv, v)), TArg p :: k) -> (None, (Val (vp, v), { m with pe = (pv, p) :: m.pe }, k))
   | _ ->
     print_endline ("unmatched: (" ^ show_ctrl c ^ ", " ^ show_env m.e ^ ", " ^ show_cont k ^ ")");
     raise Todo
@@ -117,3 +124,6 @@ let%test "ref" = eval (Rf (s, (True s))) = (s, Loc 1)
 let%test "drf" = eval (Drf (Rf (c, True c))) = (c, T)
 let%test "set/deref" = eval (Drf (Srf (Rf (c, True c), (False c)))) = (c, F)
 let%test "send" = eval (Send (c, (True s))) = (c, T)
+let lamalpha = Lam (s, "x", Typ (Pv "a", Bool), Id "x")
+let id = TLam ("a", lamalpha)
+let%test "polyid" = eval (App (TApp (id, s), (True s))) = (s, T)
