@@ -3,3 +3,6 @@
  (inline_tests)
  (libraries base)
  (preprocess (pps ppx_inline_test ppx_deriving.show)))
+
+(menhir (modules parser))
+(ocamllex lexer)

@@ -34,7 +34,6 @@ type exp =
   | Id of id
   | Rcd of place * (label * exp) list
   | Fld of exp * label
-  (* Send as primitive? *)
   | Rf of place * exp
   | Drf of exp
   | Srf of exp * exp

@@ -1,0 +1,53 @@
+; Pretend we have some abstract event type
+type event = ...
+let makeEvent: forall P . num -> P event = ...
+
+; Shorthand
+type s = node server
+
+; Producer/Consumer queue
+type consumer = exists P . P (P event -> ())
+
+let consumers: s ref s list consumer = []
+let queue: s ref s list event = []
+
+let listen c: consumer = consumers := c :: !consumer
+
+let enqueue event: s event -> () = queue := event :: !queue
+let produce: forall P . P event -> () = lambda e: event . enqueue (send s e)
+
+let dequeueRest event: s event, []: s ref s list consumer -> () = ()
+let dequeueRest event: s event, consumers: s ref s list consumer -> () =
+  let c :: rest = consumers in
+  (unpack {P, f} = c in
+    f (send p event))
+  dequeueRest event rest
+let dequeue event: s event -> () =
+  dequeueRest (last !queue)
+  queue := (init !queue)
+
+; Program using queue
+let onJoin: forall P . consumer = Lambda P . pack {P, lambda e: P event . print P e} as consumer
+let join: forall P . () -> () = Lambda P . lambda () . listen (onJoin P)
+
+; The actual network events over time
+let runtimeEvents (): () -> () =
+  (join (node client1)) ()
+  (join (node client2)) ()
+  produce (makeEvent (node client1) 1)
+  produce (makeEvent (node client2) 2)
+  dequeue ()
+  (join (node client3)) ()
+  dequeue ()
+
+; Output:
+CLIENT1:
+1
+2
+
+CLIENT2:
+1
+2
+
+CLIENT3:
+2

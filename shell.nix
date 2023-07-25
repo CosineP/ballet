@@ -7,5 +7,6 @@ pkgs.mkShell rec {
     ocamlPackages.ppx_inline_test
     ocamlPackages.ppx_deriving
     ocamlPackages.findlib
+    ocamlPackages.menhir
   ];
 }
