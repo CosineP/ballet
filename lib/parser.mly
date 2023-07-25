@@ -6,6 +6,7 @@ open Sugar
 %token EOF
 %token TRUE
 %token FALSE
+%token XOR
 %token LAM
 %token DOT
 %token <string> LOW
@@ -74,6 +75,7 @@ tlam:
 exp:
   | TRUE place { True $2 }
   | FALSE place { False $2 }
+  | exp XOR exp { Xor($1, $3) }
   | LAM place id typ DOT exp { Lam ($2, $3, $4, $6) }
   | exp exp { App ($1, $2) }
   | LP exp RP { $2 }

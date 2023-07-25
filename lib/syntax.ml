@@ -29,6 +29,7 @@ and typ =
 type exp =
   | True of place
   | False of place
+  | Xor of exp * exp
   | Lam of place * id * typ * exp
   | App of exp * exp
   | Id of id

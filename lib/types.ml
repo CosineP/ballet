@@ -51,6 +51,11 @@ and ok_t dt typ = match typ with
 [@@@warning "-8"] (* Most closely matches paper rules *)
 let rec tp gm dt exp = match exp with
   | (True p | False p) -> ok_p dt p; Typ (p, Bool)
+  | Xor (e1, e2) ->
+    let Typ (p, Bool) = tp gm dt e1 in
+    let Typ (p', Bool) = tp gm dt e2 in
+    assert (p = p');
+    Typ (p, Bool)
   | Lam (p, x, t, e) ->
     ok_p dt p;
     let gm = (x, t) :: gm in

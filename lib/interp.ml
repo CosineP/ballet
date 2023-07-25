@@ -34,6 +34,8 @@ type ctrl =
 [@@deriving show]
 
 type ctx =
+  | Xor1 of exp
+  | Xor2 of vnop
   | Fun of place * id * exp * env
   | Arg of exp
   | Flds of place * (label * vnop) list * label * (label * exp) list
@@ -70,6 +72,7 @@ let step (c, m, k) = match (c, k) with
   (* Could: split into (admin c k = c k) and (step c e s k = p c e s k) *)
   | (Exp (True p), k) -> (Some p, (Val (p, T), m, k))
   | (Exp (False p), k) -> (Some p, (Val (p, F), m, k))
+  | (Exp (Xor (e1, e2)), k) -> (None, (Exp e1, m, Xor1 e2 :: k))
   | (Exp (Lam (p, x, _, e)), k) -> (Some p, (Val (p, LamV (x, e, m.e)), m, k))
   | (Exp (App (e1, e2)), k) -> (None, (Exp e1, m, Arg e2 :: k))
   | (Exp (Id x), k) -> let (p, v) = List.assoc x m.e in (Some p, (Val (p, v), m, k))
@@ -82,6 +85,10 @@ let step (c, m, k) = match (c, k) with
   | (Exp (Send (p, e)), k) -> (None, (Exp e, m, SendP p :: k))
   | (Exp (TLam (pv, e)), k) -> (None, (Exp e, m, TFun pv :: k))
   | (Exp (TApp (e, p)), k) -> (None, (Exp e, m, TArg p :: k))
+  | (Val (p, v), Xor1 e :: k) -> (Some p, (Exp e, m, Xor2 v :: k))
+  | (Val (p, v2), Xor2 v1 :: k) ->
+    let xor = (match (v1, v2) with | ((T, F) | (F, T)) -> T | ((T, T) | (F, F)) -> F | _ -> raise Impossible) in
+    (Some p, (Val (p, xor), m, k))
   | (Val (p, LamV (x, e1, env)), Arg e2 :: k) -> (Some p, (Exp e2, m, Fun (p, x, e1, env) :: k))
   | (Val v, Fun (p, x, e, env) :: k) -> (Some p, (Exp e, { m with e = (x, v) :: env }, k))
   | (Val (_, v), Flds (p, vs, vl, (l, e) :: es) :: k) -> (Some p, (Exp e, m, Flds (p, (vl, v) :: vs, l, es) :: k))

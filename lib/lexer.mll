@@ -31,8 +31,11 @@ rule read =
   | "Λ" { CAPLAM }
   | "at" { AT }
   | "send" { SEND }
+  | "xor" { XOR }
+  | "⊕" { XOR }
   | "let" { LET }
   | low letter* { LOW (Lexing.lexeme lexbuf) }
   | cap letter* { CAP (Lexing.lexeme lexbuf) }
   | ' ' { read lexbuf }
+  | '\n' { read lexbuf }
   | eof { EOF }
