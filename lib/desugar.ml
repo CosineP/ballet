@@ -1,6 +1,6 @@
 open Syntax
 open Sugar
-open Types
+open Typeck
 open Parse
 
 exception Todo
