@@ -6,9 +6,10 @@ open Parse
 exception Todo
 
 let s = Named "s"
-let dm = Named "dummy"
+let dm = Named "dm"
 let tru = True s
-let pparse s = let e = parse_exp s in print_endline @@ show_exp @@ e; e
+let trace e = print_endline (show_exp e); e
+let pparse s = trace (parse_exp s)
 (* Parser tests *)
 let%test "parse true" = parse_exp "true s" = tru
 let%test "parse lam" = parse_exp {|λs x s bool.true s|} = Lam (s, "x", Typ (s, Bool), tru)
@@ -40,3 +41,9 @@ let rec desugar gm tops outer = match tops with
       | (a,t)::rrest ->
         desugar gm (Let (x, List.rev rrest, (Lam (dm, a, t, e))) :: rest) outer)
     | _ -> raise Todo)
+
+let mtrace e = if false then trace e else e
+let suggood sug desug = mtrace (desugar [] (parse sug) (Id "main")) = mtrace (parse_exp desug)
+let%test "let" = suggood
+  {|let x = true s let main = false c|}
+  {|(λdm x s bool.(λdm main c bool.main) false c) true s|}
