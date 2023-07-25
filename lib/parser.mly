@@ -20,6 +20,11 @@ open Syntax
 %token COMMA
 %token COLON
 %token REF
+%token DRF
+%token SRF
+%token CAPLAM
+%token AT
+%token SEND
 
 %start <exp> expp
 
@@ -58,6 +63,11 @@ lblexps:
   | lblexp { [$1] }
   ;
 
+tlam:
+  | CAPLAM {}
+  | FORALL {}
+  ;
+
 exp:
   | TRUE place { True $2 }
   | FALSE place { False $2 }
@@ -68,6 +78,11 @@ exp:
   | LB lblexps RB place { Rcd ($4, $2) }
   | exp DOT id { Fld ($1, $3) }
   | REF place exp { Rf ($2, $3) }
+  | DRF exp { Drf $2 }
+  | exp SRF exp { Srf ($1, $3) }
+  | tlam id DOT exp { TLam ($2, $4) }
+  | exp AT place { TApp ($1, $3) }
+  | SEND place exp { Send ($2, $3) }
   ;
 
 expp:

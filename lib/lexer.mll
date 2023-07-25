@@ -2,7 +2,6 @@
 open Parser
 }
 
-let lam = '\\'
 let dot = '.'
 let low = ['a'-'z']
 let cap = ['A'-'Z']
@@ -10,7 +9,8 @@ let letter = ['a'-'z' 'A'-'Z']
 
 rule read =
   parse
-  | lam { LAM }
+  | '\\' { LAM }
+  | "λ" { LAM }
   | dot { DOT }
   | "true" { TRUE }
   | "false" { FALSE }
@@ -24,8 +24,13 @@ rule read =
   | '}' { RB }
   | '=' { EQ }
   | ',' { COMMA }
+  | ":=" { SRF }
   | ':' { COLON }
   | "ref" { REF }
+  | '!' { DRF }
+  | "Λ" { CAPLAM }
+  | "at" { AT }
+  | "send" { SEND }
   | low letter* { LOW (Lexing.lexeme lexbuf) }
   | cap letter* { CAP (Lexing.lexeme lexbuf) }
   | ' ' { read lexbuf }
