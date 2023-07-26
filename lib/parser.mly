@@ -33,7 +33,7 @@ open Sugar
 %token SELF
 
 %start <exp> expp
-%start <program> program
+%start <texp> sugar
 
 %%
 
@@ -99,11 +99,12 @@ expp:
   | e = exp; EOF { e }
   ;
 
-top:
-  | LET id EQ exp { Let ($2, [], $4) }
+sug:
+  | LET id EQ sug IN sug { Let ($2, [], $4, $6) }
+  | exp { Base $1 }
   ;
 
-program:
-  | top program { $1 :: $2 }
-  | top EOF { [$1] }
+sugar:
+  | sug EOF { $1 }
   ;
+

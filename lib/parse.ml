@@ -8,4 +8,4 @@ let parse_exp s =
 
 let parse s =
   let lexbuf = from_string s in
-  program read lexbuf
+  sugar read lexbuf

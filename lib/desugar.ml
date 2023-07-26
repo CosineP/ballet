@@ -28,22 +28,25 @@ let%test "parse polyapp" = parse_exp {|x at s true s|} = App (TApp (Id "x", s), 
 let%test "parse send" = parse_exp {|send c true s|} = Send (Named "c", tru)
 
 (* Sugar parser tests *)
-let%test "parse let" = parse {|let x = true s|} = [Let ("x", [], tru)]
+let%test "parse let" = parse {|let x = true s in true s|} = Let ("x", [], Base tru, Base tru)
 
-let rec desugar gm tops outer = match tops with
-  | [] -> outer
-  | t::rest -> (match t with
-    | Let (x, args, e) -> (match List.rev args with
-      | [] ->
-        (* Let-type-inference is easy! *)
-        let t = tp gm [] e in
-        App (Lam (dm, None, x, t, desugar ((x, t)::gm) rest outer), e)
-      | (a,t)::rrest ->
-        desugar gm (Let (x, List.rev rrest, (Lam (dm, None, a, t, e))) :: rest) outer)
-    | _ -> raise Todo)
+let rec desugar gm exp = match exp with
+  | Let (x, args, e1, e2) -> (match List.rev args with
+    | [] ->
+      (* Let-type-inference is easy! *)
+      let e1 = desugar gm e1 in
+      let t = tp gm [] e1 in
+      App (Lam (dm, None, x, t, desugar ((x, t)::gm) e2), e1)
+    | (a,t)::rrest ->
+      let e1 = desugar gm e1 in
+      desugar gm (Let (x, List.rev rrest, (Base (Lam (dm, None, a, t, e1))), e2)))
+  | Seq _ -> raise Todo
+  | LetRec _ -> raise Todo
+  | Base e -> e
 
 let mtrace e = if false then trace e else e
-let suggood sug desug = mtrace (desugar [] (parse sug) (Id "main")) = mtrace (parse_exp desug)
+let suggood sug desug = mtrace (desugar [] (parse sug)) = mtrace (parse_exp desug)
 let%test "let" = suggood
-  {|let x = true s let main = false c|}
-  {|(λdm x s bool.(λdm main c bool.main) false c) true s|}
+  {|let x = true s in false c|}
+  {|(λdm x s bool.false c) true s|}
+
