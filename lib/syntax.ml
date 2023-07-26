@@ -14,7 +14,7 @@ type place =
 
 type base =
   | Bool
-  | Arr of typ * typ
+  | Arr of typ * typ * pv
   | Record of (label * base) list
   | Mu of tv * base
   | Tv of tv

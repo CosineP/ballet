@@ -15,7 +15,8 @@ let rec psubst_t typ pv gnd = match typ with
   | Exists (pv', _) when pv = pv' -> typ
   | Exists (pv', t) -> Exists (pv', psubst_t t pv gnd)
 and psubst_b base pv gnd = match base with
-  | Arr (t1, t2) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd)
+  | Arr (_, _, pv') when pv = pv' -> base
+  | Arr (t1, t2, pv) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd, pv)
   | Record fs -> Record (List.map (fun (l, t) -> (l, psubst_b t pv gnd)) fs)
   | (Bool | Mu _ | Tv _ | Ref _) -> base
 
@@ -25,7 +26,7 @@ let rec bsubst_t typ tv gnd = match typ with
   | Exists _ -> raise Todo (* Can you unfold an existentially qualified type? *)
 and bsubst_b base tv gnd = match base with
   | Bool -> base
-  | Arr (t1, t2) -> Arr (bsubst_t t1 tv gnd, bsubst_t t2 tv gnd)
+  | Arr (t1, t2, pv) -> Arr (bsubst_t t1 tv gnd, bsubst_t t2 tv gnd, pv)
   | Record fs -> Record (List.map (fun (l, t) -> (l, bsubst_b t tv gnd)) fs)
   | Mu _ -> raise Todo (* Can you unfold a recursive type under a different type variable? *)
   | Tv tv' when tv = tv' -> gnd
@@ -40,7 +41,7 @@ let rec ok_p dt p = match p with
   | Pv pv -> drop @@ List.find (fun e -> e = pv) dt
 and ok_b dt b = match b with
   | (Bool | Tv _) -> ()
-  | Arr (t1, t2) -> ok_t dt t1; ok_t dt t2
+  | Arr (t1, t2, pv) -> ok_t (pv::dt) t1; ok_t (pv::dt) t2
   | Record bs -> drop @@ List.iter (fun (_, b) -> ok_b dt b) bs
   | Mu (_, b) -> ok_b dt b
   | Ref t -> ok_t dt t
