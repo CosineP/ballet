@@ -121,8 +121,8 @@ let eval e =
   let (v, _, _) = ev starting_placement (Exp e, { pe = []; e = []; s = []; }, []) in
   v
 
-let c = Named "Client"
-let s = Named "Server"
+let c = Named "c"
+let s = Named "s"
 let vid = App ((Lam (s, None, "x", Typ (s, Bool), (Id "x"))), (True s))
 let%test "id" = eval vid = (s, T)
 let%test "rec" = eval (Rcd (s, [("f", True s)])) = (s, RcdV [("f", T)])

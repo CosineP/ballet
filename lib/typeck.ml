@@ -127,8 +127,8 @@ let rec tp gm dt exp = match exp with
     t2
 
 (* We can do so much more than client/server.  But this makes testing easier *)
-let c = Named "Client"
-let s = Named "Server"
+let c = Named "c"
+let s = Named "s"
 let typeof = tp [] []
 let pv = "Self"
 let%test "bl" = typeof (True s) = Typ (s, Bool)
