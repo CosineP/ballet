@@ -28,6 +28,9 @@ open Sugar
 %token AT
 %token SEND
 %token LET
+%token IN
+%token AS
+%token SELF
 
 %start <exp> expp
 %start <program> program
@@ -52,7 +55,8 @@ lblbases:
 
 base:
   | BOOL { Bool }
-  | typ ARR typ { Arr ($1, $3) }
+  | SELF EQ CAP IN typ ARR typ { Arr ($5, $7, $3) }
+  | SELF CAP DOT typ ARR typ { Arr ($4, $6, $2) }
   | LB lblbases RB { Record $2 }
   ;
 
@@ -76,7 +80,8 @@ exp:
   | TRUE place { True $2 }
   | FALSE place { False $2 }
   | exp XOR exp { Xor($1, $3) }
-  | LAM place id typ DOT exp { Lam ($2, $3, $4, $6) }
+  | LAM place id typ DOT exp { Lam ($2, None, $3, $4, $6) }
+  | LAM place AS CAP IN id typ DOT exp { Lam ($2, Some $4, $6, $7, $9) }
   | exp exp { App ($1, $2) }
   | LP exp RP { $2 }
   | id { Id $1 }

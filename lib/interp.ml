@@ -73,7 +73,7 @@ let step (c, m, k) = match (c, k) with
   | (Exp (True p), k) -> (Some p, (Val (p, T), m, k))
   | (Exp (False p), k) -> (Some p, (Val (p, F), m, k))
   | (Exp (Xor (e1, e2)), k) -> (None, (Exp e1, m, Xor1 e2 :: k))
-  | (Exp (Lam (p, x, _, e)), k) -> (Some p, (Val (p, LamV (x, e, m.e)), m, k))
+  | (Exp (Lam (p, _, x, _, e)), k) -> (Some p, (Val (p, LamV (x, e, m.e)), m, k))
   | (Exp (App (e1, e2)), k) -> (None, (Exp e1, m, Arg e2 :: k))
   | (Exp (Id x), k) -> let (p, v) = List.assoc x m.e in (Some p, (Val (p, v), m, k))
   | (Exp (Rcd (p, (l, e) :: es)), k) -> (Some p, (Exp e, m, Flds (p, [], l, es) :: k))
@@ -123,7 +123,7 @@ let eval e =
 
 let c = Named "Client"
 let s = Named "Server"
-let vid = App ((Lam (s, "x", Typ (s, Bool), (Id "x"))), (True s))
+let vid = App ((Lam (s, None, "x", Typ (s, Bool), (Id "x"))), (True s))
 let%test "id" = eval vid = (s, T)
 let%test "rec" = eval (Rcd (s, [("f", True s)])) = (s, RcdV [("f", T)])
 let%test "rec-fld" = eval (Fld (Rcd (s, [("f", True s)]), "f")) = (s, T)
@@ -131,6 +131,6 @@ let%test "ref" = eval (Rf (s, (True s))) = (s, Loc 1)
 let%test "drf" = eval (Drf (Rf (c, True c))) = (c, T)
 let%test "set/deref" = eval (Drf (Srf (Rf (c, True c), (False c)))) = (c, F)
 let%test "send" = eval (Send (c, (True s))) = (c, T)
-let lamalpha = Lam (s, "x", Typ (Pv "a", Bool), Id "x")
+let lamalpha = Lam (s, None, "x", Typ (Pv "a", Bool), Id "x")
 let id = TLam ("a", lamalpha)
 let%test "polyid" = eval (App (TApp (id, s), (True s))) = (s, T)

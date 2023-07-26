@@ -33,21 +33,21 @@ and bsubst_b base tv gnd = match base with
   | Tv _ -> base
   | Ref b -> Ref (bsubst_t b tv gnd)
 
-(* There's a library function for this but i forget its name and can't find it
-on Google omg *)
-let drop _ = ()
 let rec ok_p dt p = match p with
   | Named _ -> ()
-  | Pv pv -> drop @@ List.find (fun e -> e = pv) dt
+  | Pv pv -> ignore @@ List.find (fun e -> e = pv) dt
 and ok_b dt b = match b with
   | (Bool | Tv _) -> ()
   | Arr (t1, t2, pv) -> ok_t (pv::dt) t1; ok_t (pv::dt) t2
-  | Record bs -> drop @@ List.iter (fun (_, b) -> ok_b dt b) bs
+  | Record bs -> ignore @@ List.iter (fun (_, b) -> ok_b dt b) bs
   | Mu (_, b) -> ok_b dt b
   | Ref t -> ok_t dt t
 and ok_t dt typ = match typ with
   | Typ (p, b) -> ok_p dt p; ok_b dt b
   | (Forall (pv, t) | Exists (pv, t)) -> ok_t (pv :: dt) t
+
+let nextpv = ref 0
+let freshpv () = nextpv := !nextpv + 1; "S" ^ (string_of_int !nextpv)
 
 [@@@warning "-8"] (* Most closely matches paper rules *)
 let rec tp gm dt exp = match exp with
@@ -57,18 +57,23 @@ let rec tp gm dt exp = match exp with
     let Typ (p', Bool) = tp gm dt e2 in
     assert (p = p');
     Typ (p, Bool)
-  | Lam (p, x, t, e) ->
+  | Lam (p, self, x, t1, e) ->
     ok_p dt p;
-    let gm = (x, t) :: gm in
-    let s = tp gm dt e in
-    Typ (p, Arr (t, s))
+    let self = match self with
+      | None -> freshpv ()
+      | Some s -> s in
+    let safevar (x, t) = match t with
+      | Typ (p', u) when p = p' -> Some (x, Typ (Pv self, u))
+      | _ -> None in
+    let dt = self :: dt in
+    let gm = (x, t1) :: List.filter_map safevar gm in
+    let t2 = tp gm dt e in
+    Typ (p, Arr (t1, t2, self))
   | App (e1, e2) ->
-    let Typ (p, Arr (Typ (p', u), t)) = tp gm dt e1 in
-    assert (p = p');
-    let Typ (p', u') = tp gm dt e2 in
-    assert (p = p');
-    assert (u = u');
-    t
+    let Typ (p, Arr (t1, t2, self)) = tp gm dt e1 in
+    let t1' = tp gm dt e2 in
+    assert (psubst_t t1 self p = t1');
+    psubst_t t2 self p
   | Id x -> List.assoc x gm
   | Rcd (p, fs) ->
     ok_p dt p;
@@ -125,23 +130,25 @@ let rec tp gm dt exp = match exp with
 let c = Named "Client"
 let s = Named "Server"
 let typeof = tp [] []
+let pv = "Self"
 let%test "bl" = typeof (True s) = Typ (s, Bool)
-let server_lam = (Lam (s, "x", Typ (s, Bool), (True c)))
-let%test "lam" = typeof server_lam = Typ (s, Arr (Typ (s, Bool), Typ (c, Bool)))
+let server_lam = (Lam (s, Some pv, "x", Typ (s, Bool), (True c)))
+let%test "lam" = typeof server_lam = Typ (s, Arr (Typ (s, Bool), Typ (c, Bool), pv))
 let%test "hetero app" = does_raise @@ fun () -> typeof (App (server_lam, True c))
 let%test "non-lam app" = does_raise @@ fun () -> typeof (App (True c, True c))
-let%test "id" = typeof (App ((Lam (s, "x", Typ (s, Bool), (Id "x"))), (True s))) = Typ (s, Bool)
+let%test "id" = typeof (App ((Lam (s, None, "x", Typ (s, Bool), (Id "x"))), (True s))) = Typ (s, Bool)
 let%test "rec-fld" = typeof (Fld (Rcd (s, [("f", (True s))]), "f")) = Typ (s, Bool)
 let%test "ref" = typeof (Rf (s, (True s))) = Typ (s, Ref (Typ (s, Bool)))
 let%test "set/deref" = typeof (Drf (Srf (Rf (c, True c), (False c)))) = Typ (c, Bool)
 let%test "hetero set" = does_raise @@ fun () -> typeof (Srf (Rf (c, True c), (False s)))
-let lamalpha = Lam (s, "x", Typ (Pv "a", Bool), Id "x")
+let lamalpha = Lam (s, None, "x", Typ (Pv "a", Bool), Id "x")
 let id = TLam ("a", lamalpha)
-let%test "polyid" = typeof (App (TApp (id, s), (True s))) = Typ (s, Bool)
+(* Λ is on hold for now!  With the new λ, i'm not sure i even want/need it *)
+(* let%test "polyid" = typeof (App (TApp (id, s), (True s))) = Typ (s, Bool) *)
 let%test "polyfail" = does_raise @@ fun () -> typeof (App (TApp (id, s), (True c)))
 let inf = Mu ("a", Ref (Typ (c, (Tv "a"))))
 let fold_unfold_x = Fd (inf, Unfd (inf, Id "x"))
-let%test "fold-unfold" = typeof (Lam (s, "x", Typ (s, inf), fold_unfold_x)) = Typ (s, Arr (Typ (s, inf), Typ (s, inf)))
+let%test "fold-unfold" = typeof (Lam (s, Some pv, "x", Typ (s, inf), fold_unfold_x)) = Typ (s, Arr (Typ (s, inf), Typ (s, inf), pv))
 let%test "send" = typeof (Send (c, True s)) = Typ (c, Bool)
 let packed = Pack (c, (True c), "P", Typ (Pv "P", Bool))
 let unpack = Unpack ("P", "x", packed, Send (s, Id "x"))

@@ -30,7 +30,7 @@ type exp =
   | True of place
   | False of place
   | Xor of exp * exp
-  | Lam of place * id * typ * exp
+  | Lam of place * pv option * id * typ * exp
   | App of exp * exp
   | Id of id
   | Rcd of place * (label * exp) list

@@ -34,6 +34,10 @@ rule read =
   | "xor" { XOR }
   | "⊕" { XOR }
   | "let" { LET }
+  | "in" { IN }
+  | "as" { AS }
+  | "⟳" { SELF}
+  | "self" { SELF }
   | low letter* { LOW (Lexing.lexeme lexbuf) }
   | cap letter* { CAP (Lexing.lexeme lexbuf) }
   | ' ' { read lexbuf }
