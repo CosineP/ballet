@@ -17,6 +17,8 @@ type vnop =
   | TLamV of pv * vnop
   | RcdV of (label * vnop) list
   | Loc of loc
+  | L of vnop
+  | R of vnop
 [@@deriving show]
 
 (* Is this still used? *)
@@ -45,6 +47,9 @@ type ctx =
   | DrfC
   | SrfL of exp
   | SrfR of place * loc
+  | SumL
+  | SumR
+  | Cse of id * exp * id * exp
   | TFun of pv
   | TArg of place
 [@@deriving show]
@@ -82,6 +87,9 @@ let step (c, m, k) = match (c, k) with
   | (Exp (Rf (p, e)), k) -> (Some p, (Exp e, m, RefP p :: k))
   | (Exp (Drf e), k) -> (None, (Exp e, m, DrfC :: k))
   | (Exp (Srf (e1, e2)), k) -> (None, (Exp e1, m, SrfL e2 :: k))
+  | (Exp (Left (e1, _)), k) -> (None, (Exp e1, m, SumL :: k))
+  | (Exp (Right (e1, _)), k) -> (None, (Exp e1, m, SumR :: k))
+  | (Exp (Case (ec, xl, el, xr, er)), k) -> (None, (Exp ec, m, Cse (xl, el, xr, er) :: k))
   | (Exp (Send (p, e)), k) -> (None, (Exp e, m, SendP p :: k))
   | (Exp (TLam (pv, e)), k) -> (None, (Exp e, m, TFun pv :: k))
   | (Exp (TApp (e, p)), k) -> (None, (Exp e, m, TArg p :: k))
@@ -98,6 +106,10 @@ let step (c, m, k) = match (c, k) with
   | (Val (p, Loc l), DrfC :: k) -> (Some p, (Val (List.assoc l m.s), m, k))
   | (Val (p, Loc l), SrfL e :: k) -> (Some p, (Exp e, m, SrfR (p, l) :: k))
   | (Val v, SrfR (p, l) :: k) -> (Some p, (Val (p, Loc l), { m with s = (l, v) :: m.s (* need to remove old? *) }, k))
+  | (Val (p, v), SumL :: k) -> Some p, (Val (p, L v), m, k)
+  | (Val (p, v), SumR :: k) -> Some p, (Val (p, R v), m, k)
+  | ((Val (p, L v), Cse (x, e, _, _) :: k) | (Val (p, R v), Cse (_, _, x, e) :: k)) ->
+    Some p, (Exp e, { m with e = (x, (p, v)) :: m.e }, k)
   | (Val (p, v), SendP q :: k) -> send p q c m.e k; (Some p, (Val (q, v), m, k))
   | (Val (p, v), TFun pv :: k) -> (Some p, (Val (p, TLamV (pv, v)), m, k))
   | (Val (vp, TLamV (pv, v)), TArg p :: k) -> (None, (Val (vp, v), { m with pe = (pv, p) :: m.pe }, k))

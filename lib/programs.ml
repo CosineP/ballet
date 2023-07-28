@@ -18,6 +18,12 @@ let bad s =
   let e = desugar [] (parse s) in
   does_raise @@ fun () -> typeof e
 
+let typstr s = typeof (desugar [] (parse s))
+let typandval s t =
+  let e = desugar [] (parse s) in
+  assert (t = typeof e);
+  eval e
+
 let%test "good λ" = run {|
   let y = true c in
   (λc x c bool.true c ⊕ send c y) true c
@@ -38,11 +44,9 @@ let%test "bad λ" = bad {|
   (send s (λc x c bool.true c ⊕ y)) true c
 |}
 
-let typstr s = typeof (desugar [] (parse s))
-
-let%test "left" = typstr "Left true c: bool + {l: bool}" = Typ (c, Sum (Bool, Record [("l", Bool)]))
-let%test "case" = typstr {|
+let%test "left" = typandval "Left true c: bool + {l: bool}" (Typ (c, Sum (Bool, Record [("l", Bool)]))) = (c, L T)
+let%test "case" = typandval {|
   case Left true c: bool + {l: bool}
   Left x -> (x xor false c)
   Right r -> (false c)
-|} = Typ (c, Bool)
+|} (Typ (c, Bool)) = (c, T)
