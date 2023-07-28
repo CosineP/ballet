@@ -38,6 +38,10 @@ rule read =
   | "as" { AS }
   | "⟳" { SELF}
   | "self" { SELF }
+  | "Left" { LEFT }
+  | "Right" { RIGHT }
+  | '+' { PLUS }
+  | "case" { CASE }
   | low letter* { LOW (Lexing.lexeme lexbuf) }
   | cap letter* { CAP (Lexing.lexeme lexbuf) }
   | ' ' { read lexbuf }

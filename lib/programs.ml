@@ -37,3 +37,12 @@ let%test "bad λ" = bad {|
   let y = true c in
   (send s (λc x c bool.true c ⊕ y)) true c
 |}
+
+let typstr s = typeof (desugar [] (parse s))
+
+let%test "left" = typstr "Left true c: bool + {l: bool}" = Typ (c, Sum (Bool, Record [("l", Bool)]))
+let%test "case" = typstr {|
+  case Left true c: bool + {l: bool}
+  Left x -> (x xor false c)
+  Right r -> (false c)
+|} = Typ (c, Bool)

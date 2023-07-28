@@ -18,7 +18,9 @@ and psubst_b base pv gnd = match base with
   | Arr (_, _, pv') when pv = pv' -> base
   | Arr (t1, t2, pv) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd, pv)
   | Record fs -> Record (List.map (fun (l, t) -> (l, psubst_b t pv gnd)) fs)
-  | (Bool | Mu _ | Tv _ | Ref _) -> base
+  | Ref t1 -> Ref (psubst_t t1 pv gnd)
+  | Sum (b1, b2) -> Sum (psubst_b b1 pv gnd, psubst_b b2 pv gnd)
+  | (Bool | Mu _ | Tv _) -> base
 
 let rec bsubst_t typ tv gnd = match typ with
   | Typ (p, b) -> Typ (p, bsubst_b b tv gnd)
@@ -28,6 +30,7 @@ and bsubst_b base tv gnd = match base with
   | Bool -> base
   | Arr (t1, t2, pv) -> Arr (bsubst_t t1 tv gnd, bsubst_t t2 tv gnd, pv)
   | Record fs -> Record (List.map (fun (l, t) -> (l, bsubst_b t tv gnd)) fs)
+  | Sum (b1, b2) -> Sum (bsubst_b b1 tv gnd, bsubst_b b2 tv gnd)
   | Mu _ -> raise Todo (* Can you unfold a recursive type under a different type variable? *)
   | Tv tv' when tv = tv' -> gnd
   | Tv _ -> base
@@ -40,6 +43,7 @@ and ok_b dt b = match b with
   | (Bool | Tv _) -> ()
   | Arr (t1, t2, pv) -> ok_t (pv::dt) t1; ok_t (pv::dt) t2
   | Record bs -> ignore @@ List.iter (fun (_, b) -> ok_b dt b) bs
+  | Sum (b1, b2) -> ok_b dt b1; ok_b dt b2
   | Mu (_, b) -> ok_b dt b
   | Ref t -> ok_t dt t
 and ok_t dt typ = match typ with
@@ -94,6 +98,22 @@ let rec tp gm dt exp = match exp with
     let t' = tp gm dt e2 in
     assert (t = t');
     Typ (p, Ref t)
+  | Left (e, u) ->
+    let Sum (u1, _) = u in
+    let Typ (p, u1') = tp gm dt e in
+    assert (u1' = u1);
+    Typ (p, u)
+  | Right (e, u) ->
+    let Sum (_, u2) = u in
+    let Typ (p, u2') = tp gm dt e in
+    assert (u2' = u2);
+    Typ (p, u)
+  | Case (ce, lx, le, rx, re) ->
+    let Typ (p, Sum (u1, u2)) = tp gm dt ce in
+    let t = tp ((lx, Typ (p, u1)) :: gm) dt le in
+    let t' = tp ((rx, Typ (p, u2)) :: gm) dt re in
+    assert (t = t');
+    t
   | TLam (p, e) -> Forall (p, tp gm (p :: dt) e)
   | TApp (e, p) ->
     ok_p dt p;
@@ -153,3 +173,4 @@ let%test "send" = typeof (Send (c, True s)) = Typ (c, Bool)
 let packed = Pack (c, (True c), "P", Typ (Pv "P", Bool))
 let unpack = Unpack ("P", "x", packed, Send (s, Id "x"))
 let%test "unpack-pack" = typeof unpack = Typ (s, Bool)
+

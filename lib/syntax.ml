@@ -16,9 +16,10 @@ type base =
   | Bool
   | Arr of typ * typ * pv
   | Record of (label * base) list
+  | Ref of typ
+  | Sum of base * base
   | Mu of tv * base
   | Tv of tv
-  | Ref of typ
 [@@deriving show]
 and typ =
   | Typ of place * base
@@ -38,6 +39,9 @@ type exp =
   | Rf of place * exp
   | Drf of exp
   | Srf of exp * exp
+  | Left of exp * base
+  | Right of exp * base
+  | Case of exp * id * exp * id * exp
   | TLam of pv * exp
   | TApp of exp * place
   | Fd of base * exp

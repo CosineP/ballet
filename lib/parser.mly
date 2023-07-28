@@ -31,6 +31,10 @@ open Sugar
 %token IN
 %token AS
 %token SELF
+%token LEFT
+%token RIGHT
+%token PLUS
+%token CASE
 
 %start <exp> expp
 %start <texp> sugar
@@ -58,6 +62,7 @@ base:
   | SELF EQ CAP IN typ ARR typ { Arr ($5, $7, $3) }
   | SELF CAP DOT typ ARR typ { Arr ($4, $6, $2) }
   | LB lblbases RB { Record $2 }
+  | base PLUS base { Sum ($1, $3) }
   ;
 
 typ:
@@ -93,6 +98,9 @@ exp:
   | tlam id DOT exp { TLam ($2, $4) }
   | exp AT place { TApp ($1, $3) }
   | SEND place exp { Send ($2, $3) }
+  | LEFT exp COLON base { Left ($2, $4) }
+  | RIGHT exp COLON base { Right ($2, $4) }
+  | CASE; c = exp; LEFT; l = id; ARR; le = exp; RIGHT; r = id; ARR; re = exp; { Case (c, l, le, r, re) }
   ;
 
 expp:
