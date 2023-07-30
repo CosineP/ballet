@@ -18,6 +18,10 @@ rule read =
   | "->" { ARR }
   | "forall" { FORALL }
   | "∀" { FORALL }
+  | "exists" { EXISTS }
+  | "∃" { EXISTS }
+  | "μ" { MU }
+  | "mu" { MU }
   | '(' { LP }
   | ')' { RP }
   | '{' { LB }
@@ -44,6 +48,9 @@ rule read =
   | "case" { CASE }
   | low letter* { LOW (Lexing.lexeme lexbuf) }
   | cap letter* { CAP (Lexing.lexeme lexbuf) }
+  | "α" { CAP (Lexing.lexeme lexbuf) }
+  | "β" { CAP (Lexing.lexeme lexbuf) }
+  | "γ" { CAP (Lexing.lexeme lexbuf) }
   | ' ' { read lexbuf }
   | '\n' { read lexbuf }
   | eof { EOF }

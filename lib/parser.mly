@@ -14,6 +14,8 @@ open Sugar
 %token BOOL
 %token ARR
 %token FORALL
+%token EXISTS
+%token MU
 %token LP
 %token RP
 %token LB
@@ -63,11 +65,14 @@ base:
   | SELF CAP DOT typ ARR typ { Arr ($4, $6, $2) }
   | LB lblbases RB { Record $2 }
   | base PLUS base { Sum ($1, $3) }
+  | MU CAP DOT base { Mu ($2, $4) }
+  | CAP { Tv $1 }
   ;
 
 typ:
   | place base { Typ ($1, $2) }
   | FORALL CAP typ { Forall ($2, $3) }
+  | EXISTS CAP typ { Exists ($2, $3) }
   ;
 
 lblexp: id EQ exp { ($1, $3) };

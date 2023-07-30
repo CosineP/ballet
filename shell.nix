@@ -8,5 +8,6 @@ pkgs.mkShell rec {
     ocamlPackages.ppx_deriving
     ocamlPackages.findlib
     ocamlPackages.menhir
+    ocamlPackages.sedlex
   ];
 }
