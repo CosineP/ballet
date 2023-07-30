@@ -49,4 +49,3 @@ let suggood sug desug = mtrace (desugar [] (parse sug)) = mtrace (parse_exp desu
 let%test "let" = suggood
   {|let x = true s in false c|}
   {|(λdm x s bool.false c) true s|}
-

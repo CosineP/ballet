@@ -67,12 +67,14 @@ base:
   | base PLUS base { Sum ($1, $3) }
   | MU CAP DOT base { Mu ($2, $4) }
   | CAP { Tv $1 }
+  | LP base RP { $2 }
   ;
 
 typ:
   | place base { Typ ($1, $2) }
-  | FORALL CAP typ { Forall ($2, $3) }
-  | EXISTS CAP typ { Exists ($2, $3) }
+  | FORALL CAP DOT typ { Forall ($2, $4) }
+  | EXISTS CAP DOT typ { Exists ($2, $4) }
+  | LP typ RP { $2 }
   ;
 
 lblexp: id EQ exp { ($1, $3) };
