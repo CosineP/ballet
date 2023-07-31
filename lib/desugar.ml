@@ -39,7 +39,8 @@ let rec desugar gm exp = match exp with
       App (Lam (p, None, x, t, desugar ((x, t)::gm) e2), e1)
     | (a,t)::rrest ->
       let e1 = desugar gm e1 in
-      desugar gm (Let (x, List.rev rrest, (Base (Lam (dm, None, a, t, e1))), e2)))
+      let [@warning "-8"] Typ (p, _) = t in
+      desugar gm (Let (x, List.rev rrest, (Base (Lam (p, None, a, t, e1))), e2)))
   | Seq _ -> raise Todo
   | LetRec _ -> raise Todo
   | Base e -> e
@@ -53,6 +54,10 @@ let%test "let" = suggood
 let%test "2 lets" = suggood
   {|let x = true s in let y = false c in x|}
   {|(λs x s bool.(λc y c bool.x) false c) true s|}
+
+let%test "lam-let" = suggood
+  {|let f (x: s bool) = x in f true s|}
+  {|(λs f s (⟳S4.s bool -> s bool).f true s) (λs x s bool.x)|}
 
 let%test "comments" = suggood
   {|

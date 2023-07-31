@@ -5,7 +5,7 @@ open Parser
 let dot = '.'
 let low = ['a'-'z']
 let cap = ['A'-'Z']
-let letter = ['a'-'z' 'A'-'Z']
+let letter = ['a'-'z' 'A'-'Z' '0'-'9']
 
 rule read =
   parse
