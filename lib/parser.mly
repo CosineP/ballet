@@ -115,8 +115,14 @@ expp:
   | e = exp; EOF { e }
   ;
 
+args:
+  | LP id COLON typ RP args { ($2, $4) :: $6 }
+  | LP id COLON typ RP { [($2, $4)] }
+  ;
+
 sug:
   | LET id EQ sug IN sug { Let ($2, [], $4, $6) }
+  | LET id args EQ sug IN sug { Let ($2, $3, $5, $7) }
   | exp { Base $1 }
   ;
 
