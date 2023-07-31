@@ -5,6 +5,9 @@ exception Todo
 
 type env = (string * typ) list
 
+let nextpv = ref 0
+let freshpv () = nextpv := !nextpv + 1; "S" ^ (string_of_int !nextpv)
+
 let psubst_p p pv gnd = match p with
   | Pv pv' when pv = pv' -> gnd
   | _ -> p
@@ -54,8 +57,32 @@ and ok_t dt typ = match typ with
   | Typ (p, b) -> ok_p dt p; ok_b dt b
   | (Forall (pv, t) | Exists (pv, t)) -> ok_t (pv :: dt) t
 
-let nextpv = ref 0
-let freshpv () = nextpv := !nextpv + 1; "S" ^ (string_of_int !nextpv)
+let eq_p p1 p2 = p1 = p2
+let rec eq_t t1 t2 = match (t1, t2) with
+  | (Typ (p1, b1), Typ (p2, b2)) -> eq_p p1 p2 && eq_b b1 b2
+  | (Forall (pv1, t1), Forall (pv2, t2) | Exists (pv1, t1), Exists (pv2, t2)) ->
+    let canon = freshpv () in
+    eq_t (psubst_t t1 pv1 (Named canon)) (psubst_t t2 pv2 (Named canon))
+  | _ -> false
+and eq_b t1 t2 = match (t1, t2) with
+  | (Arr (t1, s1, pv1), Arr (t2, s2, pv2)) ->
+    let canon = freshpv () in
+    eq_t (psubst_t t1 pv1 (Named canon)) (psubst_t t2 pv2 (Named canon)) &&
+    eq_t (psubst_t s1 pv1 (Named canon)) (psubst_t s2 pv2 (Named canon))
+  | (Record fs1, Record fs2) ->
+    let pairs = (List.combine (List.sort compare fs1) (List.sort compare fs2)) in
+    List.for_all (fun ((l1, t1), (l2, t2)) -> l1 = l2 && eq_b t1 t2) pairs
+  | (Ref t1, Ref t2) -> eq_t t1 t2
+  | (Sum (b1, c1), Sum (b2, c2)) -> eq_b b1 b2 && eq_b c1 c2
+  | (Bool, Bool) -> true
+  (* We hope everything is substituted by this point to ensure equality works *)
+  | (Tv _, _) | (_, Tv _) -> raise (Failure "not substd")
+  | (Mu (tv1, b1), Mu (tv2, b2)) ->
+    (* Hack: we need a canonical base type. ref t is a base type, so ref
+       S(fresh) bool is a canonical base type *)
+    let canon = Ref (Typ (Pv (freshpv ()), Bool)) in
+    eq_b (bsubst_b b1 tv1 canon) (bsubst_b b2 tv2 canon)
+  | _ -> false
 
 [@@@warning "-8"] (* Most closely matches paper rules *)
 let rec tp gm dt exp = match exp with
@@ -80,7 +107,7 @@ let rec tp gm dt exp = match exp with
   | App (e1, e2) ->
     let Typ (p, Arr (t1, t2, self)) = tp gm dt e1 in
     let t1' = tp gm dt e2 in
-    assert (psubst_t t1 self p = t1');
+    assert (eq_t (psubst_t t1 self p) t1');
     psubst_t t2 self p
   | Id x -> List.assoc x gm
   | Rcd (p, fs) ->
@@ -100,23 +127,23 @@ let rec tp gm dt exp = match exp with
   | Srf (e1, e2) ->
     let Typ (p, Ref t) = tp gm dt e1 in
     let t' = tp gm dt e2 in
-    assert (t = t');
+    assert (eq_t t t');
     Typ (p, Ref t)
   | Left (e, u) ->
     let Sum (u1, _) = u in
     let Typ (p, u1') = tp gm dt e in
-    assert (u1' = u1);
+    assert (eq_b u1' u1);
     Typ (p, u)
   | Right (e, u) ->
     let Sum (_, u2) = u in
     let Typ (p, u2') = tp gm dt e in
-    assert (u2' = u2);
+    assert (eq_b u2' u2);
     Typ (p, u)
   | Case (ce, lx, le, rx, re) ->
     let Typ (p, Sum (u1, u2)) = tp gm dt ce in
     let t = tp ((lx, Typ (p, u1)) :: gm) dt le in
     let t' = tp ((rx, Typ (p, u2)) :: gm) dt re in
-    assert (t = t');
+    assert (eq_t t t');
     t
   | TLam (p, e) -> Forall (p, tp gm (p :: dt) e)
   | TApp (e, p) ->
@@ -124,10 +151,8 @@ let rec tp gm dt exp = match exp with
     let Forall (pv, t) = tp gm dt e in
     psubst_t t pv p
   | Unfd (mutvu, e) ->
-    let Typ (p, Mu (tv, u)) = tp gm dt e in
-    let Mu (tv', u') = mutvu in
-    assert (tv = tv');
-    assert (u = u');
+    let Typ (p, (Mu (tv, u) as tvu)) = tp gm dt e in
+    assert (eq_b tvu mutvu);
     Typ (p, bsubst_b u tv (Mu (tv, u)))
   | Fd (mutvu, e) ->
     let Typ (p, unfd) = tp gm dt e in
