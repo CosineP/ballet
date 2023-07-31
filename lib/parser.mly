@@ -65,6 +65,7 @@ base:
   | SELF CAP DOT typ ARR typ { Arr ($4, $6, $2) }
   | LB lblbases RB { Record $2 }
   | base PLUS base { Sum ($1, $3) }
+  | REF typ { Ref $2 }
   | MU CAP DOT base { Mu ($2, $4) }
   | CAP { Tv $1 }
   | LP base RP { $2 }
