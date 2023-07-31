@@ -35,8 +35,8 @@ let rec desugar gm exp = match exp with
     | [] ->
       (* Let-type-inference is easy! *)
       let e1 = desugar gm e1 in
-      let t = tp gm [] e1 in
-      App (Lam (dm, None, x, t, desugar ((x, t)::gm) e2), e1)
+      let [@warning "-8"] Typ (p, _) as t = tp gm [] e1 in
+      App (Lam (p, None, x, t, desugar ((x, t)::gm) e2), e1)
     | (a,t)::rrest ->
       let e1 = desugar gm e1 in
       desugar gm (Let (x, List.rev rrest, (Base (Lam (dm, None, a, t, e1))), e2)))
@@ -48,4 +48,4 @@ let mtrace e = if false then trace e else e
 let suggood sug desug = mtrace (desugar [] (parse sug)) = mtrace (parse_exp desug)
 let%test "let" = suggood
   {|let x = true s in false c|}
-  {|(λdm x s bool.false c) true s|}
+  {|(λs x s bool.false c) true s|}
