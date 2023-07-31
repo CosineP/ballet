@@ -51,6 +51,7 @@ rule read =
   | "α" { CAP (Lexing.lexeme lexbuf) }
   | "β" { CAP (Lexing.lexeme lexbuf) }
   | "γ" { CAP (Lexing.lexeme lexbuf) }
+  | ';' [^'\n']* '\n' { read lexbuf }
   | ' ' { read lexbuf }
   | '\n' { read lexbuf }
   | eof { EOF }

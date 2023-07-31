@@ -53,3 +53,13 @@ let%test "let" = suggood
 let%test "2 lets" = suggood
   {|let x = true s in let y = false c in x|}
   {|(λs x s bool.(λc y c bool.x) false c) true s|}
+
+let%test "comments" = suggood
+  {|
+  ; My big comment here
+  let x = true s in
+  ; More comment!
+  false c
+  ; Finishing with a comment
+  |}
+  {|(λs x s bool.false c) true s|}
