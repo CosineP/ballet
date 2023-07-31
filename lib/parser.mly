@@ -1,6 +1,8 @@
 %{
 open Syntax
 open Sugar
+let nextpv = ref 0
+let freshpv () = nextpv := !nextpv + 1; "N" ^ (string_of_int !nextpv)
 %}
 
 %token EOF
@@ -63,6 +65,7 @@ base:
   | BOOL { Bool }
   | SELF EQ CAP IN typ ARR typ { Arr ($5, $7, $3) }
   | SELF CAP DOT typ ARR typ { Arr ($4, $6, $2) }
+  | typ ARR typ { Arr ($1, $3, freshpv ()) }
   | LB lblbases RB { Record $2 }
   | base PLUS base { Sum ($1, $3) }
   | REF typ { Ref $2 }

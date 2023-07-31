@@ -51,6 +51,10 @@ let%test "case" = typandval {|
   Right r -> (false c)
 |} (Typ (c, Bool)) = (c, T)
 
+let%test "2ndorder" = typandval {|
+  (λc f c c bool -> c bool.f true c) (λc x c bool.x)
+|} (Typ (c, Bool)) = (c, T)
+
 let rec alias aliases p = match aliases with
   | [] -> p
   | (x,t)::rest -> alias rest (Str.global_replace (Str.regexp x) t p)
