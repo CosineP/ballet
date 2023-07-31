@@ -16,11 +16,15 @@ let rec psubst_t typ pv gnd = match typ with
   | Exists (pv', t) -> Exists (pv', psubst_t t pv gnd)
 and psubst_b base pv gnd = match base with
   | Arr (_, _, pv') when pv = pv' -> base
-  | Arr (t1, t2, pv) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd, pv)
+  | Arr (t1, t2, apv) -> Arr (psubst_t t1 pv gnd, psubst_t t2 pv gnd, apv)
   | Record fs -> Record (List.map (fun (l, t) -> (l, psubst_b t pv gnd)) fs)
   | Ref t1 -> Ref (psubst_t t1 pv gnd)
   | Sum (b1, b2) -> Sum (psubst_b b1 pv gnd, psubst_b b2 pv gnd)
   | (Bool | Mu _ | Tv _) -> base
+
+let%test "arr doesnt change pv" =
+  let id = Arr (Typ (Pv "S", Bool), Typ (Pv "S", Bool), "S") in
+  psubst_b id "Other" (Named "nothere") = id
 
 let rec bsubst_t typ tv gnd = match typ with
   | Typ (p, b) -> Typ (p, bsubst_b b tv gnd)
