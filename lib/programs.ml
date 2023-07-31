@@ -50,3 +50,36 @@ let%test "case" = typandval {|
   Left x -> (x xor false c)
   Right r -> (false c)
 |} (Typ (c, Bool)) = (c, T)
+
+let rec alias aliases p = match aliases with
+  | [] -> p
+  | (x,t)::rest -> alias rest (Str.global_replace (Str.regexp x) t p)
+
+let good_aliases =  [
+  ({|\[\]:consumer|}, "Left true s: list unfd consumer");
+  ({|\[\]:event|}, "Left true s: list unfd event");
+  (* i don't know how to fix this *)
+  ({|list unfd consumer|}, "() + {x: ref consumer, next: list consumer}");
+  ({|list consumer|}, "μα.() + {x: ref consumer, next: α}");
+  ({|list unfd event|}, "() + {x: ref s event, next: list event}");
+  ({|list event|}, "μα.() + {x: ref s event, next: α}");
+  ({|\bconsumer\b|}, "∃P.P (⟳S.S event -> S ())");
+  ({|\bevent\b|}, "bool");
+  ({|()|}, "bool");
+]
+let traces s = (*print_endline s; *)s
+
+let%test "simple list" = ignore @@ run @@ traces @@ alias good_aliases {|
+  ref s []:consumer
+|}; true
+
+let%test "workspace" = ignore @@ run @@ traces @@ alias good_aliases {|
+  ref s []:consumer
+|}; true
+
+let%test "prod-cons so-far" = run @@ traces @@ alias good_aliases {|
+  let consumers = ref s []:consumer in
+  let queue = ref s []:event in
+  true c
+|} = (c, T)
+

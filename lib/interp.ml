@@ -57,10 +57,12 @@ type ctx =
 type cont = ctx list
 [@@deriving show]
 
+[@@@warning "-27"]
 let send p q c e k =
   (* i want to use an effect for this but i don't have ocaml 5 *)
-  print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
-    ^ show_ctrl c ^ ", " ^ show_env e ^ ", " ^ show_cont k ^ ")"
+  (* print_endline @@ "MESSAGE (" ^ show_place p ^ "->" ^ show_place q ^ "): ("
+    ^ show_ctrl c ^ ", " ^ show_env e ^ ", " ^ show_cont k ^ ")" *)
+  ()
 
 let next_loc = ref 0
 
