@@ -40,6 +40,7 @@ type ctx =
   | Xor2 of vnop
   | Fun of place * id * exp * env
   | Arg of exp
+  | LetE of id * exp
   | Flds of place * (label * vnop) list * label * (label * exp) list
   | Lbl of label
   | RefP of place
@@ -82,6 +83,7 @@ let step (c, m, k) = match (c, k) with
   | (Exp (Xor (e1, e2)), k) -> (None, (Exp e1, m, Xor1 e2 :: k))
   | (Exp (Lam (p, _, x, _, e)), k) -> (Some p, (Val (p, LamV (x, e, m.e)), m, k))
   | (Exp (App (e1, e2)), k) -> (None, (Exp e1, m, Arg e2 :: k))
+  | (Exp (Let (x, e1, e2)), k) -> (None, (Exp e1, m, LetE (x, e2) :: k))
   | (Exp (Id x), k) -> let (p, v) = List.assoc x m.e in (Some p, (Val (p, v), m, k))
   | (Exp (Rcd (p, (l, e) :: es)), k) -> (Some p, (Exp e, m, Flds (p, [], l, es) :: k))
   | (Exp (Rcd (p, [])), k) -> (Some p, (Val (p, RcdV []), m, k))
@@ -101,6 +103,7 @@ let step (c, m, k) = match (c, k) with
     (Some p, (Val (p, xor), m, k))
   | (Val (p, LamV (x, e1, env)), Arg e2 :: k) -> (Some p, (Exp e2, m, Fun (p, x, e1, env) :: k))
   | (Val v, Fun (p, x, e, env) :: k) -> (Some p, (Exp e, { m with e = (x, v) :: env }, k))
+  | (Val (p, v), LetE (x, e) :: k) -> (Some p, (Exp e, { m with e = (x, (p, v)) :: m.e }, k))
   | (Val (_, v), Flds (p, vs, vl, (l, e) :: es) :: k) -> (Some p, (Exp e, m, Flds (p, (vl, v) :: vs, l, es) :: k))
   | (Val (_, v), Flds (p, vs, vl, []) :: k) -> (Some p, (Val (p, RcdV ((vl, v) :: vs)), m, k))
   | (Val (p, RcdV es), Lbl l :: k) -> (Some p, (Val (p, List.assoc l es), m, k))

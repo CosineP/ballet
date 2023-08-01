@@ -1,6 +1,5 @@
 open Syntax
 open Sugar
-open Typeck
 open Parse
 
 exception Todo
@@ -33,10 +32,7 @@ let%test "parse let" = parse {|let x = true s in true s|} = Let ("x", [], Base t
 let rec desugar gm exp = match exp with
   | Let (x, args, e1, e2) -> (match List.rev args with
     | [] ->
-      (* Let-type-inference is easy! *)
-      let e1 = desugar gm e1 in
-      let [@warning "-8"] Typ (p, _) as t = tp gm [] e1 in
-      App (Lam (p, None, x, t, desugar ((x, t)::gm) e2), e1)
+      Syntax.Let (x, desugar gm e1, desugar gm e2)
     | (a,t)::rrest ->
       let e1 = desugar gm e1 in
       let [@warning "-8"] Typ (p, _) = t in
@@ -46,18 +42,11 @@ let rec desugar gm exp = match exp with
   | Base e -> e
 
 let mtrace e = if false then trace e else e
-let suggood sug desug = mtrace (desugar [] (parse sug)) = mtrace (parse_exp desug)
-let%test "let" = suggood
-  {|let x = true s in false c|}
-  {|(λs x s bool.false c) true s|}
-
-let%test "2 lets" = suggood
-  {|let x = true s in let y = false c in x|}
-  {|(λs x s bool.(λc y c bool.x) false c) true s|}
+let suggood sug desug = mtrace (desugar [] (parse sug)) = mtrace (desugar [] (parse desug))
 
 let%test "lam-let" = suggood
   {|let f (x: s bool) = x in f true s|}
-  {|(λs f s (⟳S4.s bool -> s bool).f true s) (λs x s bool.x)|}
+  {|let f = λs x s bool.x in f true s|}
 
 let%test "comments" = suggood
   {|
@@ -67,4 +56,4 @@ let%test "comments" = suggood
   false c
   ; Finishing with a comment
   |}
-  {|(λs x s bool.false c) true s|}
+  {|let x = true s in false c|}

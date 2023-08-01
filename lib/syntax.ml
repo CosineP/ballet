@@ -52,6 +52,7 @@ type exp =
   | Xor of exp * exp
   | Lam of place * pv option * id * typ * exp
   | App of exp * exp
+  | Let of id * exp * exp
   | Id of id
   | Rcd of place * (label * exp) list
   | Fld of exp * label

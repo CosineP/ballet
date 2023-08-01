@@ -110,6 +110,10 @@ let rec tp gm dt exp = match exp with
     assert (eq_t (psubst_t t1 self p) t1');
     psubst_t t2 self p
   | Id x -> List.assoc x gm
+  | Let (x, e1, e2) ->
+    let t = tp gm dt e1 in
+    let gm = (x, t) :: gm in
+    tp gm dt e2
   | Rcd (p, fs) ->
     ok_p dt p;
     Typ (p, Record (List.map (fun (l, e) ->
