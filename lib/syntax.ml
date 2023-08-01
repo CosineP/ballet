@@ -1,3 +1,7 @@
+open Format
+
+exception Todo
+
 type tv = string
 [@@deriving show]
 type pv = string
@@ -8,9 +12,11 @@ type label = string
 [@@deriving show]
 
 type place =
-  | Named of string
-  | Pv of pv
+  | Named of string [@printer fun f -> fprintf f "%s"]
+  | Pv of pv [@printer fun f -> fprintf f "%s"]
 [@@deriving show]
+
+let s f p = pp_print_string f p
 
 type base =
   | Bool
@@ -20,12 +26,25 @@ type base =
   | Sum of base * base
   | Mu of tv * base
   | Tv of tv
-[@@deriving show]
 and typ =
   | Typ of place * base
   | Forall of pv * typ
   | Exists of pv * typ
-[@@deriving show]
+
+let rec pp_typ f t = match t with
+  | Typ (p, b) -> fprintf f "%a %a" pp_place p pp_base b
+  | Forall (p, t) -> s f "∀"; s f p; s f "."; pp_typ f t
+  | Exists (p, t) -> s f "∃"; s f p; s f "."; pp_typ f t
+and pp_base f b = match b with
+  | Bool -> s f "bool"
+  | Arr (t1, t2, pv) -> s f "⟳"; s f pv; s f  "."; pp_typ f t1; s f " -> "; pp_typ f t2
+  | Record fs -> s f "{ "; List.iter (fun (l, t) -> fprintf f "%s: %a, " l pp_base t) fs; s f "}"
+  | Ref t -> s f "ref "; pp_typ f t
+  | Sum (b1, b2) ->  pp_base f b1; s f " + "; pp_base f b2
+  | Mu (tv, b) -> fprintf f "μ%s.%a" tv pp_base b
+  | Tv tv -> s f tv
+let show_typ t = asprintf "%a" pp_typ t
+let show_base b = asprintf "%a" pp_base b
 
 type exp =
   | True of place
