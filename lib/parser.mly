@@ -39,6 +39,8 @@ let freshpv () = nextpv := !nextpv + 1; "N" ^ (string_of_int !nextpv)
 %token RIGHT
 %token PLUS
 %token CASE
+%token FD
+%token UNFD
 
 %start <exp> expp
 %start <texp> sugar
@@ -112,6 +114,8 @@ exp:
   | LEFT exp COLON base { Left ($2, $4) }
   | RIGHT exp COLON base { Right ($2, $4) }
   | CASE; c = exp; LEFT; l = id; ARR; le = exp; RIGHT; r = id; ARR; re = exp; { Case (c, l, le, r, re) }
+  | FD base exp { Fd ($2, $3) }
+  | UNFD base exp { Unfd ($2, $3) }
   ;
 
 expp:

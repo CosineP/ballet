@@ -31,8 +31,8 @@ let%test "arr doesnt change pv" =
 
 let rec bsubst_t typ tv gnd = match typ with
   | Typ (p, b) -> Typ (p, bsubst_b b tv gnd)
-  | Forall _ -> raise Todo (* Can you unfold a polymorphic recursive type? *)
-  | Exists _ -> raise Todo (* Can you unfold an existentially qualified type? *)
+  | Forall (pv, t) -> Forall (pv, bsubst_t t tv gnd)
+  | Exists (pv, t) -> Exists (pv, bsubst_t t tv gnd)
 and bsubst_b base tv gnd = match base with
   | Bool -> base
   | Arr (t1, t2, pv) -> Arr (bsubst_t t1 tv gnd, bsubst_t t2 tv gnd, pv)

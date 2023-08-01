@@ -46,6 +46,8 @@ rule read =
   | "Right" { RIGHT }
   | '+' { PLUS }
   | "case" { CASE }
+  | "fold" { FD }
+  | "unfold" { UNFD }
   | low letter* { LOW (Lexing.lexeme lexbuf) }
   | cap letter* { CAP (Lexing.lexeme lexbuf) }
   | "α" { CAP (Lexing.lexeme lexbuf) }
