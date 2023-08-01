@@ -84,6 +84,9 @@ and eq_b t1 t2 = match (t1, t2) with
     eq_b (bsubst_b b1 tv1 canon) (bsubst_b b2 tv2 canon)
   | _ -> false
 
+let show_env gm =
+  List.fold_left (fun acc -> fun (x,t) -> acc ^ x ^ ":" ^ show_typ t ^ "\n") "--------\n" gm
+
 [@@@warning "-8"] (* Most closely matches paper rules *)
 let rec tp gm dt exp = match exp with
   | (True p | False p) -> ok_p dt p; Typ (p, Bool)
