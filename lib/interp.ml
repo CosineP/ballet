@@ -97,6 +97,8 @@ let step (c, m, k) = match (c, k) with
   | (Exp (Send (p, e)), k) -> (None, (Exp e, m, SendP p :: k))
   | (Exp (TLam (pv, e)), k) -> (None, (Exp e, m, TFun pv :: k))
   | (Exp (TApp (e, p)), k) -> (None, (Exp e, m, TArg p :: k))
+  | (Exp (Fd (_, e)), k) -> (None, (Exp e, m, k))
+  | (Exp (Unfd (_, e)), k) -> (None, (Exp e, m, k))
   | (Val (p, v), Xor1 e :: k) -> (Some p, (Exp e, m, Xor2 v :: k))
   | (Val (p, v2), Xor2 v1 :: k) ->
     let xor = (match (v1, v2) with | ((T, F) | (F, T)) -> T | ((T, T) | (F, F)) -> F | _ -> raise Impossible) in

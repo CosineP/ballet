@@ -78,12 +78,20 @@ let%test "simple list" = ignore @@ run @@ traces @@ alias good_aliases {|
 |}; true
 
 let%test "workspace" = ignore @@ run @@ traces @@ alias good_aliases {|
-  ref s []:consumer
+  true s
 |}; true
 
 let%test "prod-cons so-far" = run @@ traces @@ alias good_aliases {|
-  let consumers = ref s []:consumer in
-  let queue = ref s []:event in
+  let consumers = ref s fold list consumer []:consumer in
+  let queue = ref s fold list event []:event in
+  ; TODO: put fold around whole expression. Eventually automatically fd/unfd
+  ; So, this would work if we didn't curry. But because we curry, e ends up
+  ; in the inner lambda's environment, which means we're not allowed to "know"
+  ; it lives on the server. Not sure what that says about the language or the
+  ; program.
+  ; Using a record to get around this for now
+  let cons (args: s { e: ref consumer, l: list consumer }) = fold list consumer Right {x = args.e, next = args.l} s: list unfd consumer in
+  let listen = λs c consumer.consumers := cons { e = ref s c, l = !consumers } s in
   true c
 |} = (c, T)
 
