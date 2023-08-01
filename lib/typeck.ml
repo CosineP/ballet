@@ -87,6 +87,10 @@ and eq_b t1 t2 = match (t1, t2) with
 let show_env gm =
   List.fold_left (fun acc -> fun (x,t) -> acc ^ x ^ ":" ^ show_typ t ^ "\n") "--------\n" gm
 
+let assert2 f p a b =
+  if f a b then () else
+    (Format.printf "failed assert2:\n%a\n%a\n" p a p b; raise (Failure "Typechecking assertion failure"))
+
 [@@@warning "-8"] (* Most closely matches paper rules *)
 let rec tp gm dt exp = match exp with
   | (True p | False p) -> ok_p dt p; Typ (p, Bool)
@@ -110,7 +114,7 @@ let rec tp gm dt exp = match exp with
   | App (e1, e2) ->
     let Typ (p, Arr (t1, t2, self)) = tp gm dt e1 in
     let t1' = tp gm dt e2 in
-    assert (eq_t (psubst_t t1 self p) t1');
+    assert2 eq_t pp_typ (psubst_t t1 self p) t1';
     psubst_t t2 self p
   | Id x -> List.assoc x gm
   | Let (x, e1, e2) ->

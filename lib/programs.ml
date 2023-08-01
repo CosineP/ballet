@@ -60,30 +60,43 @@ let rec alias aliases p = match aliases with
   | (x,t)::rest -> alias rest (Str.global_replace (Str.regexp x) t p)
 
 let good_aliases =  [
-  ({|\[\]:consumer|}, "Left true s: list unfd consumer");
-  ({|\[\]:event|}, "Left true s: list unfd event");
-  (* i don't know how to fix this *)
+  ({|\[\]:consumer|}, "fold list consumer Left true s: list unfd consumer");
   ({|list unfd consumer|}, "() + {x: ref consumer, next: list consumer}");
   ({|list consumer|}, "μα.() + {x: ref consumer, next: α}");
-  ({|list unfd event|}, "() + {x: ref s event, next: list event}");
-  ({|list event|}, "μα.() + {x: ref s event, next: α}");
   ({|\bconsumer\b|}, "∃P.P (⟳S.S event -> S ())");
+  (* Order: we can talk about list event and list bool both! *)
   ({|\bevent\b|}, "bool");
+  ({|\[\]:bool|}, "fold list bool Left true s: list unfd bool");
+  ({|list unfd bool|}, "() + {x: bool, next: list bool}");
+  ({|list bool|}, "μα.() + {x: bool, next: α}");
   ({|()|}, "bool");
 ]
-let traces s = (*print_endline s; *)s
+let traces s = print_endline s; s
 
 let%test "simple list" = ignore @@ run @@ traces @@ alias good_aliases {|
   ref s []:consumer
 |}; true
 
+let%test "list ops" = run @@ traces @@ alias good_aliases {|
+  let cons (args: s { e: bool, l: list bool }) = fold list bool Right {x = args.e, next = args.l} s: list unfd bool in
+  ; No letrec yet
+  ; let axor (a: list bool) = case unfd e of
+  ;   Left j -> n ⊕ axor
+  let example = cons { e = true s, l = cons { e = true s, l = cons { e = false s, l = cons { e = true s, l = []:bool } s } s } s } s in
+  case (unfold list bool example)
+    Left v -> (false s)
+    Right n -> (n.x)
+|} = (s, T)
+
 let%test "workspace" = ignore @@ run @@ traces @@ alias good_aliases {|
-  true s
+  case (unfold list bool example)
+    Left n -> (n.e)
+    Right v -> (false s)
 |}; true
 
 let%test "prod-cons so-far" = run @@ traces @@ alias good_aliases {|
-  let consumers = ref s fold list consumer []:consumer in
-  let queue = ref s fold list event []:event in
+  let consumers = ref s []:consumer in
+  let queue = ref s []:event in
   ; TODO: put fold around whole expression. Eventually automatically fd/unfd
   ; So, this would work if we didn't curry. But because we curry, e ends up
   ; in the inner lambda's environment, which means we're not allowed to "know"
@@ -91,7 +104,10 @@ let%test "prod-cons so-far" = run @@ traces @@ alias good_aliases {|
   ; program.
   ; Using a record to get around this for now
   let cons (args: s { e: ref consumer, l: list consumer }) = fold list consumer Right {x = args.e, next = args.l} s: list unfd consumer in
+  let consev (args: s { e: event, l: list event }) = fold list event Right {x = args.e, next = args.l} s: list unfd event in
   let listen = λs c consumer.consumers := cons { e = ref s c, l = !consumers } s in
+  let enqueue (e: s event) = queue := consev { e = e, l = !queue } s in
+  let produce = ΛP.λs e P event.enqueue (send s e) in
   true c
 |} = (c, T)
 

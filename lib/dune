@@ -2,6 +2,7 @@
  (name mycelium)
  (inline_tests)
  (libraries base str sedlex)
+ (modes byte)
  (preprocess (pps ppx_inline_test ppx_deriving.show sedlex.ppx)))
 
 (menhir (modules parser))
